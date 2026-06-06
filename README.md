@@ -1,214 +1,237 @@
 # Moodsic Web Auto-DJ 🎧
-> Mezclador de audio inteligente y motor Auto-DJ autónomo en tiempo real, ejecutado completamente en el navegador mediante Web Audio API y React.
+> Intelligent real-time audio mixer and autonomous Auto-DJ engine running entirely in the browser using the Web Audio API and React.
 
-Moodsic es una aplicación web interactiva de DJ que permite cargar archivos de música locales (o pistas de demostración) para analizarlos en tiempo real y realizar transiciones armónicas automáticas o manuales entre dos decks independientes (Deck A y Deck B). 
+Moodsic is an interactive web-based DJ application that allows users to upload local music files (or load demo tracks) to analyze them in real-time and perform seamless manual or automated harmonic transitions between two independent decks (Deck A and Deck B). 
 
-El sistema utiliza Procesamiento de Señales Digitales (DSP) en el lado del cliente para detectar el tempo (BPM), la tonalidad musical (Camelot Code), y los puntos óptimos de entrada (Intro/Drop) y salida (Outro). Con esta información, el motor Auto-DJ sincroniza los beats de las pistas y ejecuta una mezcla fluida de 5 fases controlando volúmenes y ecualizaciones (EQs).
-
----
-
-## 📋 Tabla de Contenidos
-- [Características Clave](#-características-clave)
-- [Pila Tecnológica](#-pila-tecnológica)
-- [Cómo Funciona Bajo el Capó (DSP y Análisis de Audio)](#-cómo-funciona-bajo-el-capó-dsp-y-análisis-de-audio)
-  - [1. Detección de BPM (Tempo)](#1-detección-de-bpm-tempo)
-  - [2. Detección de Tonalidad (Escala Camelot)](#2-detección-de-tonalidad-escala-camelot)
-  - [3. Detección de Intro / Drop](#3-detección-de-intro--drop)
-  - [4. Detección de Outro](#4-detección-de-outro)
-  - [5. Compatibilidad Armónica (Camelot Wheel)](#5-compatibilidad-armónica-camelot-wheel)
-- [Motor de Transición de Auto-DJ](#-motor-de-transición-de-auto-dj)
-  - [Alineación de Tempo (Pitch Matching)](#alineación-de-tempo-pitch-matching)
-  - [Alineación Rítmica (Beat Grid Alignment)](#alineación-rítmica-beat-grid-alignment)
-  - [Transición de Ecualización en 5 Fases](#transición-de-ecualización-en-5-fases)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Prerrequisitos e Instalación](#-prerrequisitos-e-instalación)
-- [Guía de Uso](#-guía-de-uso)
-- [Solución de Problemas (Troubleshooting)](#-solución-de-problemas-troubleshooting)
+The system utilizes client-side Digital Signal Processing (DSP) to detect the tempo (BPM), musical key (Camelot Code), and optimal entry (Intro/Drop) and exit (Outro) points. Using this analysis, the Auto-DJ engine matches the tempo, aligns the beats, and executes a smooth 3-phase EQ transition at a constant volume level to maintain mixing momentum.
 
 ---
 
-## ✨ Características Clave
-
-*   **Doble Reproductor (Decks A & B):** Controladores de reproducción independientes con representación gráfica de la onda de audio (Waveform) renderizada en tiempo real mediante `<canvas>`.
-*   **Análisis Local de Audio:** Decodificación y análisis de archivos de audio arrastrados por el usuario, sin enviar datos a ningún servidor (100% privado y veloz).
-*   **Análisis Armónico Camelot:** Detecta el tono de la canción y dibuja una rueda visual de compatibilidad armónica en el dashboard lateral.
-*   **Motor Auto-DJ Inteligente:** Cuando está activo, monitorea el progreso de la pista en reproducción. Al alcanzar el punto de "Outro", busca una pista compatible en la biblioteca, la carga en el deck libre, sincroniza los BPMs, alinea los ritmos y ejecuta la transición.
-*   **Mezclador Manual Completo:**
-    *   Ecualizadores rotativos de 3 bandas por canal (Bajos, Medios, Altos).
-    *   Fader de pitch/velocidad de alta resolución (rango de ±5%).
-    *   Faders de volumen de canal y crossfader de potencia constante (Equal-power curve).
-*   **Diseño Visual Premium:** Estética cyberpunk/glassmorphism con un esquema de colores de alta fidelidad (tonos neón cian, rosa y verde) y fuentes de Google Fonts (*Outfit* y *Space Grotesk*).
-*   **Consola de Actividades de DJ:** Bitácora en tiempo real que detalla cada paso matemático y lógico del motor de mezclas.
-
----
-
-## 🛠️ Pila Tecnológica
-
-*   **Biblioteca Principal:** [React 18 (Vite)](https://react.dev/)
-*   **Procesamiento de Audio:** Web Audio API (`AudioContext`, `OfflineAudioContext`, `BiquadFilterNode` para EQs, `GainNode` para faders, `AudioBufferSourceNode` para reproducción).
-*   **Iconos:** [Lucide React](https://lucide.dev/)
-*   **Estilos:** CSS3 vainilla con variables personalizadas, filtros de desenfoque (`backdrop-filter`) y efectos de resplandor neón.
-*   **Tipografía:** *Outfit* (títulos e interfaces) y *Space Grotesk* (métrica e indicadores).
+## 📋 Table of Contents
+- [Key Features](#-key-features)
+- [Technology Stack](#-technology-stack)
+- [How It Works Under the Hood (DSP & Audio Analysis)](#-how-it-works-under-the-hood-dsp--audio-analysis)
+  - [1. BPM (Tempo) Detection](#1-bpm-tempo-detection)
+  - [2. Musical Key Detection (Camelot Scale)](#2-musical-key-detection-camelot-scale)
+  - [3. Intro / Drop Detection](#3-intro--drop-detection)
+  - [4. Outro Detection](#4-outro-detection)
+  - [5. Harmonic Compatibility (Camelot Wheel)](#5-harmonic-compatibility-camelot-wheel)
+- [Auto-DJ Transition Engine](#-auto-dj-transition-engine)
+  - [Tempo Matching (Pitch Matching)](#tempo-matching-pitch-matching)
+  - [Rhythmic Alignment (Beat Grid Alignment)](#rhythmic-alignment-beat-grid-alignment)
+  - [3-Phase EQ & Volume Transition](#3-phase-eq--volume-transition)
+- [Project Architecture & Directory Structure](#-project-architecture--directory-structure)
+- [Prerequisites & Installation](#-prerequisites--installation)
+- [Usage Guide](#-usage-guide)
+- [Troubleshooting](#-troubleshooting)
 
 ---
 
-## 🔬 Cómo Funciona Bajo el Capó (DSP y Análisis de Audio)
+## ✨ Key Features
 
-El archivo [`src/utils/audioAnalyzer.js`](file:///D:/dev/Moodsic/src/utils/audioAnalyzer.js) es el núcleo analítico de Moodsic. Utiliza matemáticas aplicadas al procesamiento de señales de audio digital:
-
-### 1. Detección de BPM (Tempo)
-Para identificar el tempo (BPM) de una pista:
-1.  **Downsampling:** Se procesa el audio dentro de un `OfflineAudioContext` remuestreado a **22,050 Hz** para reducir el tamaño del buffer y acelerar los cálculos.
-2.  **Aislamiento de Transitorios (Filtro de paso bajo):** Se pasa la señal por un filtro `lowpass` con corte en **150 Hz** y factor Q de 1.0. Esto aísla los golpes del bombo (kick drum), que marcan el ritmo en la música de baile.
-3.  **Detección de Picos:** Se busca la amplitud máxima absoluta. Se define un umbral dinámico (60% de dicha amplitud máxima). Los picos que superen este umbral y que estén separados por al menos 0.25 segundos (equivalente a un límite superior de 240 BPM) se registran como golpes rítmicos.
-4.  **Histograma de Intervalos:** Se calculan las distancias (en muestras) entre picos consecutivos y se convierten a BPM candidatos. Los BPM se normalizan al rango estándar de DJ (**75 a 150 BPM**) doblando o dividiendo el valor a la mitad. Se construye un histograma y el BPM con mayor ocurrencia (suavizado con los valores adyacentes) se define como el tempo de la canción.
-
-### 2. Detección de Tonalidad (Escala Camelot)
-La detección del tono musical permite mezclar armónicamente:
-1.  **Hann Windowing & FFT:** Se extraen 8 ventanas de audio del centro de la canción (del 30% al 70% de la duración total) para evitar intros o silencios. A cada ventana de **4096 muestras** se le aplica una función de ventana Hann y se calcula la **Transformada Rápida de Fourier (FFT)** usando un algoritmo Radix-2 Cooley-Tukey implementado en JS puro.
-2.  **Extracción de Chromagrama (Vector Chroma):** Para cada bin de frecuencia en el rango audible de instrumentos estándar (50 Hz a 2000 Hz), se calcula la magnitud espectral y se mapea a su respectiva nota MIDI ($f \rightarrow \text{Nota}$). Las energías se acumulan en un vector de 12 elementos (uno por cada semitono de la escala cromática: C, C#, D... B). El vector chroma se normaliza dividiendo cada elemento por el valor máximo.
-3.  **Correlación de Perfiles (Krumhansl-Schmuckler):** El vector chroma rotado en las 12 tonalidades posibles se compara contra los vectores de perfil estándar de Krumhansl-Schmuckler para escalas mayores (`KS_MAJOR`) y menores (`KS_MINOR`). Se utiliza el **coeficiente de correlación de Pearson**. La escala con la correlación más alta determina la tonalidad física (ej. *C Minor*).
-4.  **Mapeo a Camelot:** La tonalidad física se traduce al código Camelot equivalente (ej. *C Minor* $\rightarrow$ `5A`, *C Major* $\rightarrow$ `8B`) mediante un diccionario de equivalencias (`CAMELOT_MAP`).
-
-### 3. Detección de Intro / Drop
-El punto de entrada ("drop") es donde la energía se eleva considerablemente después de un inicio silencioso o progresivo:
-*   Se escanean los primeros 60 segundos de la canción dividiéndolos en bloques de 1 segundo.
-*   Se calcula la energía cuadrática media (**RMS**) de cada bloque.
-*   Se calcula el delta de energía entre bloques consecutivos. El punto de entrada se identifica donde ocurre el mayor incremento positivo de energía (delta), siempre que los siguientes 4 segundos mantengan un nivel de energía por encima del 80% del promedio de la canción (confirmando que no es un pico transitorio).
-
-### 4. Detección de Outro
-El punto de salida ("outro") es donde la canción comienza a desvanecerse o perder elementos rítmicos:
-*   Se escanean los últimos 2 minutos de la canción en bloques de 1 segundo.
-*   Se calcula el **RMS** de cada bloque y se identifica el RMS máximo de esta región final.
-*   Se busca (avanzando cronológicamente) el primer bloque donde la energía decae por debajo del **22% del RMS máximo** y se mantiene por debajo del 35% durante el resto del tema. Este punto de caída sostenida se marca como el inicio de la mezcla (Outro).
-
-### 5. Compatibilidad Armónica (Camelot Wheel)
-Dos pistas son armónicamente compatibles si sus claves Camelot están correlacionadas en la rueda Camelot. El sistema valida esto en la función [`areKeysCompatible`](file:///D:/dev/Moodsic/src/utils/audioAnalyzer.js#L430-L449):
-*   **Misma clave:** ej. `8A` y `8A` (mezcla perfecta).
-*   **Claves adyacentes numéricamente:** ej. `8A` y `9A` (subida de energía), `8A` y `7A` (bajada). El sistema contempla la transición circular entre `12` y `1`.
-*   **Intercambio relativo Mayor/Menor:** Cambiar la letra manteniendo el mismo número, ej. `8A` (La menor) y `8B` (Do mayor).
+*   **Dual Players (Decks A & B):** Independent playback controllers with real-time waveform visualization rendered on HTML5 `<canvas>`.
+*   **Local Audio Analysis:** Client-side decoding and analysis of user-uploaded files (100% private, zero server uploads).
+*   **Camelot Harmonic Analysis:** Analyzes musical key compatibility and renders a visual Camelot Wheel on the sidebar.
+*   **Intelligent Auto-DJ Engine:** Monitors the playing deck and, upon reaching the Outro point, loads a compatible track from the library into the free deck, syncs its BPM, performs high-precision beatmatching phase alignment, and triggers the transition.
+*   **Complete Manual Mixer:**
+    *   Three-band rotary EQs per channel (Lows, Mids, Highs).
+    *   High-resolution pitch/speed faders with a range of ±20%.
+    *   Channel volume faders and equal-power curve crossfader.
+    *   Master BPM selector (defaulting to 128 BPM) that automatically locks loaded track speeds.
+*   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
+*   **DJ Activity Log Console:** Real-time ticker displaying the mathematical and logical steps taken by the mixer and Auto-DJ engines.
 
 ---
 
-## 🎛️ Motor de Transición de Auto-DJ
+## 🛠️ Technology Stack
 
-Cuando el reproductor llega al punto de "Outro" de la canción activa, se inicia automáticamente el proceso de transición en segundo plano. La función principal que orquesta esto es [`triggerAutomatedTransition`](file:///D:/dev/Moodsic/src/App.jsx#L293-L515):
+*   **Core Library:** [React 18 (Vite)](https://react.dev/)
+*   **Audio Engine:** Web Audio API (`AudioContext`, `OfflineAudioContext`, `BiquadFilterNode` for EQs, `GainNode` for volume/crossfade, `AudioBufferSourceNode` for source playback).
+*   **Icons:** [Lucide React](https://lucide.dev/)
+*   **Styling:** Vanilla CSS3 with CSS variables, backdrop blur filters, and neon glows.
+*   **Typography:** *Outfit* (titles and UI) and *Space Grotesk* (metrics and stats).
 
-### Alineación de Tempo (Pitch Matching)
-El motor de mezclas lee los BPM originales de la pista saliente (`fromBpm`) y de la entrante (`toBpm`). Calcula el porcentaje de ajuste de velocidad requerido para igualarlos:
-$$\text{pitchOffset} = \frac{\text{fromBpm} - \text{toBpm}}{\text{toBpm}} \times 100$$
-Este porcentaje se aplica al fader de pitch del deck entrante y se asigna al nodo de audio: `source.playbackRate.value = 1 + (pitchOffset / 100)`.
+---
 
-### Alineación Rítmica (Beat Grid Alignment)
-Para evitar la superposición caótica de bombos (el temido "cabalgamiento" o "trainwreck"):
-1.  Se calcula la duración de un beat (en segundos) en base al tempo de la pista activa: `beatDuration = 60 / fromBpm`.
-2.  Se obtiene la posición exacta de reproducción con precisión de microsegundos usando el reloj interno del procesador de audio: `elapsed = currentTime - startTime`.
-3.  Se calcula el residuo de fase: `beatOffset = highPrecisionTime % beatDuration`.
-4.  Se desfasa el arranque del deck entrante para que coincida exactamente con el inicio del siguiente beat: `delay = beatDuration - beatOffset`. El comando `source.start(AudioContext.currentTime + delay)` programa el disparo síncrono.
+## 🔬 How It Works Under the Hood (DSP & Audio Analysis)
 
-### Transición de Ecualización en 5 Fases
-Una vez que el deck entrante se dispara de forma síncrona, se ejecuta una automatización gradual en 5 etapas iguales a lo largo del tiempo de introducción del nuevo tema:
+The file [`src/utils/audioAnalyzer.js`](file:///d:/dev/Moodsic/src/utils/audioAnalyzer.js) is the analytical core of Moodsic. It implements mathematics and DSP algorithms on client-side audio data:
+
+### 1. BPM (Tempo) Detection
+To identify a track's tempo (BPM):
+1.  **Downsampling:** Audio is processed inside an `OfflineAudioContext` resampled to **22,050 Hz** to decrease buffer size and accelerate calculations.
+2.  **Transient Isolation (Lowpass Filter):** The signal is passed through a `lowpass` filter with a cutoff frequency of **150 Hz** and a Q factor of 1.0. This isolates the kick drum hits, which define the rhythm in dance music.
+3.  **Peak Detection:** Finds the maximum absolute amplitude and sets a dynamic threshold (60% of the maximum amplitude). Peaks exceeding this threshold, spaced at least 0.25 seconds apart (equivalent to an upper limit of 240 BPM), are recorded as rhythmic hits.
+4.  **Interval Histogram:** Measures the distance (in samples) between consecutive peaks and converts them to candidate BPMs. Candidate BPMs are normalized to the DJ-standard range of **75 to 150 BPM** by doubling or halving the value. A histogram is built, and the BPM with the highest occurrence (smoothed with adjacent values) is defined as the track tempo.
+
+### 2. Musical Key Detection (Camelot Scale)
+To detect the musical key for harmonic mixing:
+1.  **Hann Windowing & FFT:** Extracts 8 audio windows from the center of the track (from 30% to 70% of total duration) to avoid silent intros or outros. A Hann window function is applied to each **4096-sample** window, and a **Fast Fourier Transform (FFT)** is calculated using a radix-2 Cooley-Tukey algorithm implemented in pure JavaScript.
+2.  **Chromagram Extraction (Chroma Vector):** For each frequency bin in the audible range of standard instruments (50 Hz to 2000 Hz), the spectral magnitude is calculated and mapped to its respective MIDI note ($f \rightarrow \text{Note}$). Energies are accumulated into a 12-element vector (one for each semitone in the chromatic scale: C, C#, D... B). The chroma vector is normalized by dividing each element by the maximum value.
+3.  **Key Profile Correlation (Krumhansl-Schmuckler):** The chroma vector is rotated through all 12 transpositions and correlated against standard Krumhansl-Schmuckler key profile templates for major (`KS_MAJOR`) and minor (`KS_MINOR`) scales. The scale with the highest Pearson correlation coefficient determines the key (e.g., *C Minor*).
+4.  **Camelot Mapping:** The physical key is mapped to its equivalent Camelot code (e.g., *C Minor* $\rightarrow$ `5A`, *C Major* $\rightarrow$ `8B`) via a dictionary lookup (`CAMELOT_MAP`).
+
+### 3. Intro / Drop Detection
+The entry point ("drop") is where the energy rises significantly after a quiet or progressive introduction:
+*   The first 60 seconds of the song are scanned in 1-second blocks.
+*   Calculates the root-mean-square (**RMS**) energy of each block.
+*   Measures the energy delta between consecutive blocks. The intro/drop point is identified at the largest positive energy delta, provided the subsequent 4 seconds maintain an energy level above 80% of the track's average (ensuring it's not a temporary peak).
+
+### 4. Outro Detection
+The exit point ("outro") is where the track begins to fade out or lose rhythmic elements:
+*   Scans the final 2 minutes of the track in 1-second blocks.
+*   Calculates the **RMS** of each block and identifies the peak RMS in this end region.
+*   Locates the first block (moving chronologically) where energy decays below **22% of the peak RMS** and remains below 35% for the rest of the song. This point is marked as the Outro mixing point.
+
+### 5. Harmonic Compatibility (Camelot Wheel)
+Two tracks are harmonically compatible if their Camelot keys are adjacent on the Camelot wheel. The system validates this in the function [`areKeysCompatible`](file:///d:/dev/Moodsic/src/utils/audioAnalyzer.js#L430-L449):
+*   **Exact Key Match:** e.g., `8A` and `8A` (perfect mix).
+*   **Numerically Adjacent Keys:** e.g., `8A` and `9A` (energy boost), `8A` and `7A` (energy drop). The wheel handles circular transitions between `12` and `1`.
+*   **Relative Major/Minor Swap:** Swapping letters while keeping the same number, e.g., `8A` (A minor) and `8B` (C major).
+
+---
+
+## 🎛️ Auto-DJ Transition Engine
+
+When the playing deck reaches the Outro point of the current track, it triggers the automated mixing sequence in the background. The core scheduling logic is managed by [`triggerAutomatedTransition`](file:///d:/dev/Moodsic/src/hooks/useAudioEngine.js#L218-L439):
+
+### Tempo Matching (Pitch Matching)
+The engine reads the original BPM of the playing track (`fromBpm`) and the incoming track (`toBpm`). It calculates the speed adjustment ratio to align them to the global Master BPM:
+$$\text{pitchOffset} = \frac{\text{MasterBPM} - \text{toBpm}}{\text{toBpm}} \times 100$$
+This percentage is applied to the incoming deck's pitch fader and assigned directly to the audio node: `source.playbackRate.value = 1 + (pitchOffset / 100)`.
+
+### Rhythmic Alignment (Beat Grid Alignment)
+To prevent clashing drumbeats (known as "trainwrecking"):
+1.  Calculates the beat duration in seconds for the active track: `beatDuration = 60 / fromBpm`.
+2.  Computes the precise playback position in microseconds using the AudioContext clock: `elapsed = currentTime - startTime`.
+3.  Calculates the phase offset: `beatOffset = highPrecisionTime % beatDuration`.
+4.  Calculates the delay to align the incoming deck's first beat with the next beat of the active deck: `delay = beatDuration - beatOffset`.
+5.  Schedules a synchronized start: `source.start(AudioContext.currentTime + delay)`.
+
+### 3-Phase EQ & Volume Transition
+Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the new track's intro duration. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
 
 ```mermaid
 graph TD
-    A[Inicio Outro] --> B[Fase 1: Subida de Volumen / EQs Silenciados -40dB]
-    B --> C[Fase 2: Intercambio de Frecuencias Medias / Melodías]
-    C --> D[Fase 3: Intercambio de Frecuencias Altas / Hats y Groove]
-    D --> E[Fase 4: Intercambio de Frecuencias Bajas / Bassline Swap]
-    E --> F[Fase 5: Desvanecimiento del canal saliente a 0%]
-    F --> G[Fin de la transición: Reset del Deck Saliente]
+    A[Outro Reached] --> B[Fase 1: Mids Swap - Voice/Melodies crossover]
+    B --> C[Fase 2: Lows Swap - Bassline swap]
+    C --> D[Fase 3: Highs Swap - Groove/Hats crossover]
+    D --> E[Transition Done: Reset Outgoing Deck]
 ```
 
-*   **Fase 1 (Volumen Entrante):** El volumen del canal entrante sube linealmente de 0.0 a 1.0. Sus ecualizadores (EQs) se inicializan totalmente recortados (`low = -40dB`, `mid = -40dB`, `high = -40dB`) para no ensuciar la mezcla.
-*   **Fase 2 (Intercambio de Medios):** Las frecuencias medias (donde residen las voces y armonías principales) del deck entrante suben de -40dB a 0dB, mientras que las del deck saliente bajan de 0dB a -40dB.
-*   **Fase 3 (Intercambio de Altos):** Los agudos (hi-hats, percusiones brillantes) del deck entrante suben a 0dB y los del saliente caen a -40dB.
-*   **Fase 4 (Intercambio de Bajos):** ¡El bajo dominante cambia! Las frecuencias graves (kick, sub-bass) del deck entrante suben a 0dB (normal) y las del deck saliente caen a -40dB.
-*   **Fase 5 (Crossover de Volúmenes):** El volumen del canal entrante se mantiene constante en 1.0 (máxima potencia), mientras que el volumen del canal saliente se reduce progresivamente a 0.0, completando la mezcla en el "drop" de la nueva canción.
+*   **Initialization:** The incoming deck starts playing at full volume (`volume = 1.0`), but its EQ nodes are initialized fully attenuated (`low = -40dB`, `mid = -40dB`, `high = -40dB`) to avoid muddying the master signal.
+*   **Phase 1 (Mids Swap):** The mid-frequencies (voices and lead melodies) of the incoming deck rise from -40dB to 0dB, while the outgoing deck's mids decrease from 0dB to -40dB.
+*   **Phase 2 (Lows Swap):** The low-frequencies (kick drum and sub-bass) swap. The incoming deck's bass rises to 0dB, while the outgoing deck's bass drops to -40dB.
+*   **Phase 3 (Highs Swap):** The high-frequencies (hi-hats and percussion sizzle) swap. The incoming deck's treble rises to 0dB, while the outgoing deck's treble drops to -40dB.
+*   **Completion:** The outgoing deck is stopped, its EQs and volumes are reset to defaults, and the crossfader is centered on the new active deck.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Project Architecture & Directory Structure
+
+Moodsic uses a modular React architecture where audio routing, state management, and component views are decoupled:
 
 ```
 Moodsic/
-├── public/                 # Archivos de audio de demostración estáticos
-│   ├── house-loop.wav      # Loop de música house (BPM: 125, Key: 8A)
-│   ├── electronic-loop.wav # Loop electrónico (BPM: 128, Key: 5A)
-│   ├── outfoxing.mp3       # Pista de audio demo
-│   └── viper.mp3           # Pista de audio demo
+├── public/                 # Static demonstration audio files
+│   ├── house-loop.wav      # House loop (BPM: 125, Key: 8A)
+│   ├── electronic-loop.wav # Electronic loop (BPM: 128, Key: 5A)
+│   ├── outfoxing.mp3       # Demo track
+│   └── viper.mp3           # Demo track
+│
 ├── src/
+│   ├── constants/
+│   │   └── demoTracks.js   # Extracted array of DEMO_TRACKS
+│   │
 │   ├── utils/
-│   │   └── audioAnalyzer.js # Utilidades DSP (BPM, FFT, Camelot, RMS)
-│   ├── App.jsx             # Interfaz de usuario React y motor de audio Web Audio API
-│   ├── index.css           # Estilos de diseño, temas neón y componentes visuales
-│   └── main.jsx            # Punto de entrada de la aplicación React
-├── index.html              # Estructura base de la SPA e inclusión de fuentes
-├── package.json            # Configuración de dependencias y scripts de Vite
-└── vite.config.js          # Configuración del servidor de desarrollo de Vite
+│   │   ├── audioAnalyzer.js # DSP utility algorithms (BPM, FFT, Camelot, RMS)
+│   │   └── formatTime.js    # Time formatting helper
+│   │
+│   ├── hooks/
+│   │   └── useAudioEngine.js # Custom hook: Web Audio API logic, mixing & transitions
+│   │
+│   ├── components/
+│   │   ├── Header.jsx / Header.css
+│   │   ├── LibraryPanel.jsx / LibraryPanel.css
+│   │   ├── Deck.jsx / Deck.css
+│   │   ├── Waveform.jsx / Waveform.css
+│   │   ├── MasterBpmSelector.jsx / MasterBpmSelector.css
+│   │   ├── MixerPanel.jsx / MixerPanel.css
+│   │   ├── EqKnob.jsx
+│   │   ├── CamelotPanel.jsx / CamelotPanel.css
+│   │   └── ActivityLog.jsx
+│   │
+│   ├── App.jsx             # React layout orchestrator (binds UI state to useAudioEngine)
+│   ├── index.css           # Global design system (variables, grid layouts, animations)
+│   └── main.jsx            # React SPA entry point
+│
+├── index.html              # HTML shell & Google Fonts imports
+├── package.json            # Vite scripts & project dependencies
+└── vite.config.js          # Vite server configurations
 ```
 
 ---
 
-## 🚀 Prerrequisitos e Instalación
+## 🚀 Prerequisites & Installation
 
-### Prerrequisitos
-*   **Node.js** (versión 18.0 o superior recomendada)
-*   **NPM** (incluido con Node) o **Yarn**
+### Prerequisites
+*   **Node.js** (version 18.0 or higher recommended)
+*   **NPM** (bundled with Node) or **Yarn**
 
-### Instalación
+### Installation
 
-1.  **Clonar el repositorio:**
+1.  **Clone the repository:**
     ```bash
     git clone https://github.com/hector-horta/Moodsic.git
     cd Moodsic
     ```
 
-2.  **Instalar dependencias:**
+2.  **Install dependencies:**
     ```bash
     npm install
     ```
 
-3.  **Ejecutar el servidor de desarrollo local:**
+3.  **Start the local development server:**
     ```bash
     npm run dev
     ```
 
-4.  **Abrir el navegador:**
-    Navega a la dirección indicada por la consola (generalmente `http://localhost:5173`).
+4.  **Open in your browser:**
+    Navigate to the URL displayed in the terminal console (typically `http://localhost:5173`).
 
 ---
 
-## 🎮 Guía de Uso
+## 🎮 Usage Guide
 
-1.  **Cargar la biblioteca:**
-    *   Al entrar por primera vez, haz clic en **"Cargar Demos"** en la barra lateral izquierda para descargar y analizar los loops de demostración incluidos.
-    *   También puedes arrastrar y soltar tus propios archivos de música (MP3, WAV, etc.) a la zona de **"Arrastra archivos MP3 o haz clic"**. El analizador de audio tardará unos segundos en detectar sus metadatos armónicos.
-2.  **Cargar pistas en los Decks:**
-    *   Usa los botones **"Deck A"** y **"Deck B"** junto a cada canción en tu biblioteca para colocarlas en el reproductor correspondiente.
-3.  **Activar/Desactivar Auto-DJ:**
-    *   En la barra lateral derecha puedes activar el switch **"Auto-DJ Inteligente"**.
-    *   Si está activo, el sistema mezclará solo al llegar al final de la pista. Si está apagado, tendrás control manual total sobre el crossfader, los ecualizadores y el lanzamiento de pistas.
-4.  **Probar Transición (Test Outro):**
-    *   Para no esperar a que termine toda la canción, haz clic en **"Test Outro"** en el deck en reproducción. Esto saltará la línea de tiempo a 5 segundos antes del punto "Outro", permitiéndote escuchar y validar cómo se activa y realiza la transición automática de inmediato.
-5.  **Controlar EQ y Crossfader manualmente:**
-    *   Puedes hacer clic en los ecualizadores (High, Mid, Low) para alternar valores preestablecidos rápidamente.
-    *   Arrastra el **Crossfader** para controlar manualmente la mezcla de volumen entre Deck A (izquierda) y Deck B (derecha).
+1.  **Load the Library:**
+    *   Click **"Cargar Demos"** on the left sidebar to download and analyze the built-in loop tracks.
+    *   Drag and drop your own DRM-free audio files (MP3, WAV, M4A, etc.) into the **"Arrastra archivos MP3 o haz clic"** drop zone. The analyzer will take a few seconds to extract tempo and key data.
+2.  **Load Tracks to Decks:**
+    *   Click the **"Deck A"** or **"Deck B"** buttons next to a track in the library to load it into the respective deck.
+3.  **Toggle Auto-DJ:**
+    *   Enable **"Auto-DJ Inteligente"** on the right sidebar.
+    *   If active, the system automatically schedules and performs transitions upon reaching the Outro point. If disabled, you can manually trigger transitions, control the crossfader, and play with the EQs.
+4.  **Fast-Track Mixing (Test Outro):**
+    *   To test a transition without waiting for the whole track to finish, click the **"Test Outro"** button on the playing deck. This jumps the playback time to 5 seconds before the Outro marker, allowing you to instantly preview the beatmatched transition.
+5.  **Manual Control:**
+    *   Click or drag the EQ knobs (High, Mid, Low) to adjust frequencies manually.
+    *   Drag the **Crossfader** to blend volume between Deck A (left) and Deck B (right).
 
 ---
 
-## ⚠️ Solución de Problemas (Troubleshooting)
+## ⚠️ Troubleshooting
 
-### 1. Errores de CORS al cargar demos
-*   **Problema:** Al hacer clic en "Cargar Demos", la consola muestra bloqueos de origen cruzado (CORS).
-*   **Causa:** El navegador bloquea solicitudes fetch a recursos locales si no se accede mediante el protocolo `http://` provisto por el servidor de desarrollo de Vite.
-*   **Solución:** Asegúrate de ejecutar la app con `npm run dev` y acceder desde `http://localhost:5173` en lugar de abrir el archivo `index.html` directamente desde el explorador de archivos (`file:///...`). Para saltar cualquier restricción de red, se recomienda arrastrar archivos MP3 locales propios.
+### 1. CORS Blockages When Loading Demos
+*   **Problem:** Console displays cross-origin resource sharing (CORS) errors when trying to load demo tracks.
+*   **Cause:** Browsers block local file requests if you open `index.html` directly from the file system (`file:///...`).
+*   **Solution:** Make sure you start the app using `npm run dev` and access it via the HTTP server (`http://localhost:5173`). Uploading your own local MP3 files is recommended to bypass all network restrictions.
 
-### 2. Archivos con protección DRM o formatos no soportados
-*   **Problema:** Algunas canciones muestran un error de decodificación al subirse.
-*   **Causa:** El decodificador nativo del navegador (`decodeAudioData`) no puede procesar archivos con encriptación DRM (como canciones descargadas directamente de plataformas de suscripción como Apple Music o Spotify) o formatos de audio no estándar.
-*   **Solución:** Asegúrate de utilizar archivos de audio limpios y libres de DRM en formato `.mp3`, `.wav`, `.ogg` o `.m4a`.
+### 2. File Decode Failures
+*   **Problem:** Certain files throw errors when loaded or analyzed.
+*   **Cause:** The browser's native audio decoder (`decodeAudioData`) cannot process DRM-protected tracks (e.g., songs downloaded directly from Spotify or Apple Music subscription folders) or corrupt/unsupported audio container formats.
+*   **Solution:** Use clean, DRM-free audio files in `.mp3`, `.wav`, `.ogg`, or `.m4a` format.
 
-### 3. Falta de audio al iniciar la aplicación
-*   **Problema:** Las canciones parecen reproducirse (la barra de progreso avanza), pero no se escucha sonido.
-*   **Causa:** Por políticas de seguridad, los navegadores bloquean la salida de audio hasta que el usuario interactúa con la página (haciendo un clic).
-*   **Solución:** Haz clic en cualquier botón de la página (como "Play", o los reguladores de volumen) para activar y desbloquear el contexto de audio (`AudioContext`).
+### 3. Silence on Playback
+*   **Problem:** Track progress progresses visually, but no audio is heard.
+*   **Cause:** Modern browsers restrict audio playbacks until the user interacts with the page (to prevent intrusive autoplay advertisements).
+*   **Solution:** Click anywhere on the webpage (such as a Play button or volume knob) to trigger user interaction and unblock the Web Audio `AudioContext`.

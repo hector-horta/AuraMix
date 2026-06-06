@@ -198,7 +198,7 @@ export async function detectBPM(audioBuffer) {
   
   if (peaks.length < 10) {
     // Fallback if not enough peaks detected
-    return 120;
+    return { bpm: 120, firstBeatOffset: 0.0 };
   }
   
   // Calculate intervals (intervals between peaks in samples)
@@ -238,7 +238,7 @@ export async function detectBPM(audioBuffer) {
     }
   });
   
-  return bestBpm;
+  return { bpm: bestBpm, firstBeatOffset: parseFloat((peaks[0] / sampleRate).toFixed(3)) };
 }
 
 /**
@@ -385,10 +385,11 @@ export function detectOutro(audioBuffer) {
   rmsValues.forEach(v => { if (v > maxRms) maxRms = v; });
   if (maxRms === 0) maxRms = 1;
   
-  // Find point where volume drops below 22% of max RMS and stays below 30%
+  // Find point where volume drops below 55% of max RMS and stays below 65%
+  // This detects the transition into the simpler outro beat loop in electronic music.
   let outroBlockIdx = -1;
-  const threshold = maxRms * 0.22;
-  const releaseThreshold = maxRms * 0.35;
+  const threshold = maxRms * 0.55;
+  const releaseThreshold = maxRms * 0.65;
   
   for (let i = 0; i < rmsValues.length; i++) {
     if (rmsValues[i] < threshold) {
@@ -409,13 +410,18 @@ export function detectOutro(audioBuffer) {
   }
   
   // Calculate final timestamp
-  let outroTime = duration - 10; // Fallback: 10 seconds before end
+  // For standard tracks, we target a fade of 90 seconds. For short tracks, we target 50% of the duration.
+  const targetHeadroom = Math.min(90, duration * 0.5);
+  let outroTime = duration - targetHeadroom;
   if (outroBlockIdx !== -1) {
     outroTime = scanStartSec + outroBlockIdx;
   }
   
-  // Clamp: Must be at least 8 seconds before the end, and not before 120s remaining
-  outroTime = Math.max(duration - 120, Math.min(duration - 8, outroTime));
+  // Clamp: Outro must be scheduled between 90s and 120s before the end for long tracks
+  // to ensure a smooth 90-120s transition. For shorter tracks, we scale down to targetHeadroom.
+  const maxOutroTime = duration - targetHeadroom;
+  const minOutroTime = Math.max(0, duration - Math.min(120, duration * 0.6));
+  outroTime = Math.max(minOutroTime, Math.min(maxOutroTime, outroTime));
   
   return parseFloat(outroTime.toFixed(2));
 }

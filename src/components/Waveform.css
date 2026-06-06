@@ -1,0 +1,83 @@
+.waveform-container {
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  height: 80px;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.waveform-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.waveform-placeholder {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.waveform-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 2px;
+  background-color: #fff;
+  box-shadow: 0 0 8px #fff;
+  pointer-events: none;
+}
+
+.intro-marker {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: var(--neon-green);
+  box-shadow: 0 0 8px var(--neon-green);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.intro-label {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  background: var(--neon-green);
+  color: #000;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.outro-marker {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: var(--neon-orange);
+  box-shadow: 0 0 8px var(--neon-orange);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.outro-label {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  background: var(--neon-orange);
+  color: #000;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 2px;
+  pointer-events: none;
+}
