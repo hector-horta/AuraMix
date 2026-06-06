@@ -33,7 +33,6 @@ export default function App() {
     deckB,
     masterBpm,
     transitionState,
-    crossfader,
     waveformData,
     loadTrackIntoDeck,
     togglePlay,
@@ -43,7 +42,6 @@ export default function App() {
     handleEqChange,
     handleVolumeChange,
     changeMasterBpm,
-    setCrossfader,
     setAutoDj,
     autoDj,
     activeDeckId,
@@ -238,11 +236,9 @@ export default function App() {
           <MixerPanel
             deckA={deckA}
             deckB={deckB}
-            crossfader={crossfader}
             transitionActive={transitionState.active}
             onEqChange={handleEqChange}
             onVolumeChange={handleVolumeChange}
-            onCrossfaderChange={setCrossfader}
           />
         </main>
 

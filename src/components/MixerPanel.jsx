@@ -6,11 +6,9 @@ import './MixerPanel.css'
 export default function MixerPanel({
   deckA,
   deckB,
-  crossfader,
   transitionActive,
   onEqChange,
-  onVolumeChange,
-  onCrossfaderChange
+  onVolumeChange
 }) {
   return (
     <div className="panel mixer-panel" style={{ marginTop: '1.5rem' }}>
@@ -19,8 +17,24 @@ export default function MixerPanel({
         <Sliders size={16} style={{ color: 'var(--text-muted)' }} />
       </div>
 
-      {/* EQ Section */}
-      <div className="eq-section">
+      {/* Main Mixer Control Layout: Vol A | Deck A EQs | Deck B EQs | Vol B */}
+      <div className="mixer-controls-layout">
+        {/* Vol A */}
+        <div className="vol-fader-container eq-deck-a">
+          <span className="eq-knob-label">Vol A</span>
+          <div className="vol-slider-wrapper">
+            <input 
+              type="range" 
+              min="0" 
+              max="1" 
+              step="0.05" 
+              value={deckA.volume} 
+              onChange={(e) => onVolumeChange('A', e.target.value)}
+              className="vol-slider"
+            />
+          </div>
+        </div>
+
         {/* Deck A EQs */}
         <div className="eq-column eq-deck-a">
           <span className="eq-deck-title eq-deck-a">Deck A EQs</span>
@@ -62,59 +76,21 @@ export default function MixerPanel({
             onChange={(val) => onEqChange('B', 'low', val)} 
           />
         </div>
-      </div>
 
-      {/* Volume sliders & Crossfader */}
-      <div className="mixer-faders-crossfader-row">
-        <div className="faders-section eq-section" style={{ height: '110px' }}>
-          <div className="vol-fader-container eq-deck-a">
-            <span className="eq-knob-label">Vol A</span>
-            <div className="vol-slider-wrapper">
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.05" 
-                value={deckA.volume} 
-                onChange={(e) => onVolumeChange('A', e.target.value)}
-                className="vol-slider"
-              />
-            </div>
+        {/* Vol B */}
+        <div className="vol-fader-container eq-deck-b">
+          <span className="eq-knob-label">Vol B</span>
+          <div className="vol-slider-wrapper">
+            <input 
+              type="range" 
+              min="0" 
+              max="1" 
+              step="0.05" 
+              value={deckB.volume} 
+              onChange={(e) => onVolumeChange('B', e.target.value)}
+              className="vol-slider"
+            />
           </div>
-          
-          <div className="vol-fader-container eq-deck-b">
-            <span className="eq-knob-label">Vol B</span>
-            <div className="vol-slider-wrapper">
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.05" 
-                value={deckB.volume} 
-                onChange={(e) => onVolumeChange('B', e.target.value)}
-                className="vol-slider"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Crossfader */}
-        <div className="crossfader-section">
-          <div className="crossfader-label-row">
-            <span style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>Deck A</span>
-            <span>Crossfader</span>
-            <span style={{ color: 'var(--neon-pink)', fontWeight: 700 }}>Deck B</span>
-          </div>
-          <input 
-            type="range" 
-            min="-1" 
-            max="1" 
-            step="0.02" 
-            value={crossfader} 
-            onChange={(e) => onCrossfaderChange(parseFloat(e.target.value))}
-            className="crossfader-slider"
-            disabled={transitionActive}
-          />
         </div>
       </div>
     </div>

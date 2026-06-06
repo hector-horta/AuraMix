@@ -28,7 +28,7 @@ export function useAudioEngine({ library, addLog }) {
     introTime: 0
   });
 
-  const [crossfader, setCrossfader] = useState(0); // -1 (Deck A) to +1 (Deck B)
+
   const [autoDj, setAutoDj] = useState(true);
   const [activeDeckId, setActiveDeckId] = useState('A'); // 'A' or 'B'
   const [masterBpm, setMasterBpm] = useState(128); // Default to 128 BPM
@@ -433,7 +433,6 @@ export function useAudioEngine({ library, addLog }) {
         setDeckB(prev => ({ ...prev, eq: defaultEq }));
       }
 
-      setCrossfader(toDeckId === 'A' ? -1 : 1);
       addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
     }, (delay + 3 * phaseDuration) * 1000);
   };
@@ -704,28 +703,23 @@ export function useAudioEngine({ library, addLog }) {
     return () => cancelAnimationFrame(animationRef.current);
   }, [deckA.isPlaying, deckA.duration, deckB.isPlaying, deckB.duration, autoDj, transitionState.active]);
 
-  // Equal-power crossfader logic
+  // Channel volume control logic (without crossfader)
   useEffect(() => {
     const nodesA = nodesRef.current.A;
     const nodesB = nodesRef.current.B;
     if (!nodesA.gainNode || !nodesB.gainNode) return;
 
-    const x = (crossfader + 1) / 2;
-    const gainA = Math.cos(x * Math.PI / 2) * deckA.volume;
-    const gainB = Math.sin(x * Math.PI / 2) * deckB.volume;
-
     if (!transitionState.active) {
-      nodesA.gainNode.gain.value = gainA;
-      nodesB.gainNode.gain.value = gainB;
+      nodesA.gainNode.gain.value = deckA.volume;
+      nodesB.gainNode.gain.value = deckB.volume;
     }
-  }, [crossfader, deckA.volume, deckB.volume, transitionState.active]);
+  }, [deckA.volume, deckB.volume, transitionState.active]);
 
   return {
     deckA,
     deckB,
     masterBpm,
     transitionState,
-    crossfader,
     waveformData,
     loadTrackIntoDeck,
     togglePlay,
@@ -735,7 +729,6 @@ export function useAudioEngine({ library, addLog }) {
     handleEqChange,
     handleVolumeChange,
     changeMasterBpm,
-    setCrossfader,
     setAutoDj,
     autoDj,
     activeDeckId,

@@ -36,7 +36,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Complete Manual Mixer:**
     *   Three-band rotary EQs per channel (Lows, Mids, Highs).
     *   High-resolution pitch/speed faders with a range of ±20%.
-    *   Channel volume faders and equal-power curve crossfader.
+    *   Channel volume faders aligned vertically next to EQs for direct channel mixing.
     *   Master BPM selector (defaulting to 128 BPM) that automatically locks loaded track speeds.
 *   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
 *   **DJ Activity Log Console:** Real-time ticker displaying the mathematical and logical steps taken by the mixer and Auto-DJ engines.
@@ -210,12 +210,12 @@ Moodsic/
     *   Click the **"Deck A"** or **"Deck B"** buttons next to a track in the library to load it into the respective deck.
 3.  **Toggle Auto-DJ:**
     *   Enable **"Auto-DJ Inteligente"** on the right sidebar.
-    *   If active, the system automatically schedules and performs transitions upon reaching the Outro point. If disabled, you can manually trigger transitions, control the crossfader, and play with the EQs.
+    *   If active, the system automatically schedules and performs transitions upon reaching the Outro point. If disabled, you can manually trigger transitions, mix track volumes, and play with the EQs.
 4.  **Fast-Track Mixing (Test Outro):**
     *   To test a transition without waiting for the whole track to finish, click the **"Test Outro"** button on the playing deck. This jumps the playback time to 5 seconds before the Outro marker, allowing you to instantly preview the beatmatched transition.
 5.  **Manual Control:**
     *   Click or drag the EQ knobs (High, Mid, Low) to adjust frequencies manually.
-    *   Drag the **Crossfader** to blend volume between Deck A (left) and Deck B (right).
+    *   Use the channel **Volume Sliders** to blend volume between Deck A and Deck B.
 
 ---
 
