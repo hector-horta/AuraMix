@@ -15,6 +15,7 @@ export default function MixMaster({
   // Calculate playlist stats
   const totalTracks = library.length;
   const totalDuration = library.reduce((acc, track) => acc + (track.duration || 0), 0);
+  const remainingTime = Math.max(0, totalDuration - sessionElapsedTime);
 
   // Compatible keys calculation
   const activeKey = activeTrack ? activeTrack.key : null;
@@ -29,10 +30,10 @@ export default function MixMaster({
     const oppositeLetter = letter === 'A' ? 'B' : 'A';
 
     return [
-      { key: `${prevNum}${letter}`, label: "Prev", isCompat: true },
-      { key: `${num}${letter}`, label: "Act", isCenter: true },
-      { key: `${nextNum}${letter}`, label: "Sig", isCompat: true },
-      { key: `${num}${oppositeLetter}`, label: "Rel", isCompat: true }
+      { key: `${prevNum}${letter}`, label: "Anterior", isCompat: true },
+      { key: `${num}${letter}`, label: "Actual", isCenter: true },
+      { key: `${nextNum}${letter}`, label: "Siguiente", isCompat: true },
+      { key: `${num}${oppositeLetter}`, label: "Relativo", isCompat: true }
     ];
   };
 
@@ -40,14 +41,53 @@ export default function MixMaster({
 
   return (
     <div className="panel mix-master-panel">
-      {/* Col 1: Title & Auto-DJ Toggle */}
-      <div className="mix-master-col mix-master-main">
-        <div className="mix-master-header">
-          <Disc className={`mix-master-icon ${autoDj ? 'autodj-icon-spinning' : ''}`} size={20} />
-          <span className="mix-master-title">MIX MASTER</span>
+      {/* Title Header (Line 1) */}
+      <div className="mix-master-header-row">
+        <h2 className="mix-master-title-text">MIX MASTER</h2>
+      </div>
+
+      {/* Primary Row (Line 2): BPM Master & Auto-DJ switch */}
+      <div className="mix-master-row mix-master-row-primary">
+        {/* BPM Selector */}
+        <div className="mix-master-bpm-container">
+          <div className="bpm-info-group">
+            <Sliders style={{ color: 'var(--neon-pink)' }} size={16} />
+            <span className="section-label">BPM MASTER DE MEZCLA</span>
+          </div>
+          <div className="bpm-controls-row">
+            <input 
+              type="range" 
+              min="75" 
+              max="150" 
+              value={masterBpm} 
+              onChange={(e) => onChangeMasterBpm(parseInt(e.target.value))}
+              className="bpm-range-slider"
+            />
+            <div className="bpm-input-wrapper">
+              <input 
+                type="number" 
+                min="75" 
+                max="150" 
+                value={masterBpm}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) {
+                    onChangeMasterBpm(Math.max(75, Math.min(150, val)));
+                  }
+                }}
+                className="bpm-number-input"
+              />
+              <span className="bpm-unit-text">BPM</span>
+            </div>
+          </div>
         </div>
-        <div className="autodj-toggle-container">
-          <span className="autodj-toggle-label">Auto-DJ</span>
+
+        {/* Auto-DJ Control */}
+        <div className="mix-master-autodj-container">
+          <div className="autodj-header-group">
+            <Disc className={`mix-master-icon ${autoDj ? 'autodj-icon-spinning' : ''}`} size={16} />
+            <span className="section-label">AUTO-DJ</span>
+          </div>
           <label className="switch">
             <input 
               type="checkbox" 
@@ -59,74 +99,75 @@ export default function MixMaster({
         </div>
       </div>
 
-      {/* Col 2: BPM Control */}
-      <div className="mix-master-col mix-master-bpm">
-        <div className="bpm-info-group">
-          <Sliders style={{ color: 'var(--neon-pink)' }} size={16} />
-          <span className="section-label">BPM MASTER</span>
-        </div>
-        <div className="bpm-controls-row">
-          <input 
-            type="range" 
-            min="75" 
-            max="150" 
-            value={masterBpm} 
-            onChange={(e) => onChangeMasterBpm(parseInt(e.target.value))}
-            className="bpm-range-slider"
-          />
-          <div className="bpm-input-wrapper">
-            <input 
-              type="number" 
-              min="75" 
-              max="150" 
-              value={masterBpm}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                if (!isNaN(val)) {
-                  onChangeMasterBpm(Math.max(75, Math.min(150, val)));
-                }
-              }}
-              className="bpm-number-input"
-            />
-            <span className="bpm-unit-text">BPM</span>
+      {/* Secondary Row (Line 3): Playlist stats & Harmony wheel */}
+      <div className="mix-master-row mix-master-row-secondary">
+        {/* Playlist Stats */}
+        <div className="mix-master-stats-container">
+          <div className="stats-header-group">
+            <Music size={16} className="stats-icon-cyan" />
+            <span className="section-label">DATOS DEL PLAYLIST</span>
+          </div>
+          <div className="stats-info-grid">
+            <div className="stats-info-item">
+              <span className="stats-info-label">Canciones</span>
+              <span className="stats-info-value">{totalTracks}</span>
+            </div>
+            <div className="stats-info-item">
+              <span className="stats-info-label">Transcurrido</span>
+              <span className="stats-info-value value-elapsed">{formatTime(sessionElapsedTime)}</span>
+            </div>
+            <div className="stats-info-item">
+              <span className="stats-info-label">Restante</span>
+              <span className="stats-info-value value-remaining">{formatTime(remainingTime)}</span>
+            </div>
+            <div className="stats-info-item">
+              <span className="stats-info-label">Duración Total</span>
+              <span className="stats-info-value">{formatTime(totalDuration)}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Col 3: Stats */}
-      <div className="mix-master-col mix-master-stats">
-        <div className="stats-header">
-          <Music size={16} className="stats-icon-cyan" />
-          <span className="section-label">PLAYLIST: {totalTracks} PISTAS</span>
-        </div>
-        <div className="stats-time-row">
-          <Clock size={14} className="stats-icon-muted" />
-          <div className="time-display">
-            <span className="time-elapsed">{formatTime(sessionElapsedTime)}</span>
-            <span className="time-divider">/</span>
-            <span className="time-total">{formatTime(totalDuration)}</span>
+        {/* Harmony Keys */}
+        <div className="mix-master-harmony-container">
+          <div className="harmony-header-group">
+            <span className="section-label section-label-harmony">CLAVES COMPATIBLES</span>
           </div>
-        </div>
-      </div>
-
-      {/* Col 4: Compatible keys */}
-      <div className="mix-master-col mix-master-harmony">
-        <span className="section-label section-label-harmony">CLAVES COMPATIBLES</span>
-        {activeTrack ? (
-          <div className="compatibility-wheel-horizontal">
-            {wheelSlots.map((slot, i) => (
-              <div 
-                key={i} 
-                className={`wheel-slot-horizontal ${slot.isCenter ? 'slot-center' : slot.isCompat ? 'slot-compat' : ''}`}
-              >
-                <span className="slot-key">{slot.key}</span>
-                <span className="slot-label">{slot.label}</span>
+          {activeTrack ? (
+            <div className="harmony-grid-layout">
+              <div className="harmony-grid-slot slot-area-prev">
+                <div className="wheel-slot-horizontal slot-compat">
+                  <span className="slot-key">{wheelSlots[0].key}</span>
+                  <span className="slot-label">{wheelSlots[0].label}</span>
+                </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <span className="harmony-placeholder">Esperando tema en vivo...</span>
-        )}
+              
+              <div className="harmony-grid-slot slot-area-actual">
+                <div className="wheel-slot-horizontal slot-center double-height">
+                  <span className="slot-key key-large">{wheelSlots[1].key}</span>
+                  <span className="slot-label label-large">{wheelSlots[1].label}</span>
+                </div>
+              </div>
+              
+              <div className="harmony-grid-slot slot-area-next">
+                <div className="wheel-slot-horizontal slot-compat">
+                  <span className="slot-key">{wheelSlots[2].key}</span>
+                  <span className="slot-label">{wheelSlots[2].label}</span>
+                </div>
+              </div>
+              
+              <div className="harmony-grid-slot slot-area-rel">
+                <div className="wheel-slot-horizontal slot-relative-key">
+                  <span className="slot-key">{wheelSlots[3].key}</span>
+                  <span className="slot-label">{wheelSlots[3].label}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="harmony-placeholder-container">
+              <span className="harmony-placeholder">Esperando tema en vivo...</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -18,7 +18,7 @@ export default function LibraryPanel({
   return (
     <section className="panel library-panel">
       <div className="library-header">
-        <h2 className="library-title">Mi Biblioteca</h2>
+        <h2 className="library-title">Selector</h2>
         {library.length === 0 && (
           <button 
             onClick={onLoadDemos} 

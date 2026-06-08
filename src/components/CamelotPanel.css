@@ -4,6 +4,12 @@
   gap: 1.25rem;
 }
 
+.camelot-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  width: 100%;
+}
+
 .camelot-title {
   font-family: var(--font-mono);
   font-size: 0.85rem;

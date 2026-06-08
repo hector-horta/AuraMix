@@ -11,9 +11,10 @@ export default function CamelotPanel({
 
   return (
     <section className="panel camelot-panel">
+      <div className="camelot-header">
+        <h2 className="camelot-title">Dashboard Camelot</h2>
+      </div>
       <div>
-        <h2 className="camelot-title" style={{ marginBottom: '0.75rem' }}>Dashboard Camelot</h2>
-        
         {activeTrack ? (
           <div className="active-camelot-card">
             <div className="active-camelot-key">{activeKey}</div>

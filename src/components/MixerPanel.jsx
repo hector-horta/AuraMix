@@ -13,7 +13,7 @@ export default function MixerPanel({
   return (
     <div className="panel mixer-panel" style={{ marginTop: '1.5rem' }}>
       <div className="mixer-header">
-        <h2 className="mixer-title">Panel de Control de Mezclas</h2>
+        <h2 className="mixer-title">Mixer</h2>
         <Sliders size={16} style={{ color: 'var(--text-muted)' }} />
       </div>
 
