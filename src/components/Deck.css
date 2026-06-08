@@ -183,34 +183,3 @@
   background: var(--neon-pink);
   box-shadow: var(--glow-pink);
 }
-
-/* Playing glow animation styles */
-@keyframes pulse-glow-cyan {
-  0% {
-    border-color: rgba(0, 240, 255, 0.25);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.1), var(--shadow-lg);
-  }
-  100% {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 20px rgba(0, 240, 255, 0.35), var(--shadow-lg);
-  }
-}
-
-@keyframes pulse-glow-pink {
-  0% {
-    border-color: rgba(255, 0, 127, 0.25);
-    box-shadow: 0 0 10px rgba(255, 0, 127, 0.1), var(--shadow-lg);
-  }
-  100% {
-    border-color: var(--neon-pink);
-    box-shadow: 0 0 20px rgba(255, 0, 127, 0.35), var(--shadow-lg);
-  }
-}
-
-.deck-playing-cyan {
-  animation: pulse-glow-cyan 1s infinite alternate;
-}
-
-.deck-playing-pink {
-  animation: pulse-glow-pink 1s infinite alternate;
-}

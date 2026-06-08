@@ -8,6 +8,7 @@ export default function TrackInfo({
   activeTrack,
   deckA,
   deckB,
+  playedTrackIds = [],
   onLoadTrack,
   onDeleteTrack
 }) {
@@ -32,7 +33,12 @@ export default function TrackInfo({
     >
       <div className="track-item-main">
         <div className="track-item-title-group">
-          <p className="track-item-title">{track.title}</p>
+          <p className="track-item-title">
+            {playedTrackIds.includes(track.id) && (
+              <span className="played-warning-badge" title="Esta canción ya ha sido reproducida en la sesión">!</span>
+            )}
+            {track.title}
+          </p>
           <p className="track-item-artist">{track.artist}</p>
         </div>
         <div className="track-item-meta">

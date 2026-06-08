@@ -10,6 +10,7 @@ export default function LibraryPanel({
   deckB,
   analyzingFile,
   analyzingProgress,
+  playedTrackIds,
   onLoadDemos,
   onFileUpload,
   onLoadTrack,
@@ -73,6 +74,7 @@ export default function LibraryPanel({
               activeTrack={activeTrack}
               deckA={deckA}
               deckB={deckB}
+              playedTrackIds={playedTrackIds}
               onLoadTrack={onLoadTrack}
               onDeleteTrack={onDeleteTrack}
             />

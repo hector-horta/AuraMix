@@ -47,6 +47,7 @@ export default function App() {
     eqOrder,
     setEqOrder,
     resyncDecks,
+    playedTrackIds,
     sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,
@@ -215,6 +216,7 @@ export default function App() {
           deckB={deckB}
           analyzingFile={analyzingFile}
           analyzingProgress={analyzingProgress}
+          playedTrackIds={playedTrackIds}
           onLoadDemos={loadAllDemos}
           onFileUpload={handleFileUpload}
           onLoadTrack={loadTrackIntoDeck}

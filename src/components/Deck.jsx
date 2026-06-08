@@ -19,10 +19,39 @@ export default function Deck({
   const playedColor = isCyan ? '#00f0ff' : '#ff007f';
   const unplayedColor = isCyan ? '#17496e' : '#6d1844';
 
-  const playingClass = deck.isPlaying ? `deck-playing-${accentColor}` : '';
+  let customStyle = {};
+  if (deck.isPlaying && deck.track) {
+    const bpm = deck.track.bpm;
+    const firstBeatOffset = deck.track.firstBeatOffset || 0.0;
+    const beatDuration = 60 / bpm;
+    const elapsed = Math.max(0, deck.currentTime - firstBeatOffset);
+    const progress = (elapsed % beatDuration) / beatDuration;
+    
+    // Cubic decay for punchy visual flash on beat
+    const intensity = Math.pow(1 - progress, 3);
+    
+    const r = isCyan ? 0 : 255;
+    const g = isCyan ? 240 : 0;
+    const b = isCyan ? 255 : 127;
+    
+    const baseBorderOpacity = isActive ? 0.35 : 0.08;
+    const targetBorderOpacity = baseBorderOpacity + intensity * (1 - baseBorderOpacity);
+    
+    const baseShadowOpacity = isActive ? 0.15 : 0.02;
+    const targetShadowOpacity = baseShadowOpacity + intensity * 0.25;
+    
+    customStyle = {
+      borderColor: `rgba(${r}, ${g}, ${b}, ${targetBorderOpacity})`,
+      boxShadow: `0 0 20px rgba(${r}, ${g}, ${b}, ${targetShadowOpacity}), var(--shadow-lg)`,
+      transition: 'none' // Disable smooth transition for instantaneous beat response
+    };
+  }
 
   return (
-    <section className={`panel deck deck-${deckId.toLowerCase()} ${isActive ? `panel-active-${accentColor}` : ''} ${playingClass}`}>
+    <section 
+      className={`panel deck deck-${deckId.toLowerCase()} ${isActive ? `panel-active-${accentColor}` : ''}`}
+      style={customStyle}
+    >
       <div className="deck-header">
         <span className="deck-label">Deck {deckId}</span>
         {deck.track && (

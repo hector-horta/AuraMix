@@ -31,6 +31,7 @@ export function useAudioEngine({ library, addLog }) {
 
   const [autoDj, setAutoDj] = useState(true);
   const [eqOrder, setEqOrder] = useState(['mid', 'low', 'high']);
+  const [playedTrackIds, setPlayedTrackIds] = useState([]);
   const [activeDeckId, setActiveDeckId] = useState('A'); // 'A' or 'B'
   const [masterBpm, setMasterBpm] = useState(128); // Default to 128 BPM
   const [transitionState, setTransitionState] = useState({
@@ -481,6 +482,9 @@ export function useAudioEngine({ library, addLog }) {
     stopDeckSource(deckId);
     transitionCheckedRef.current[deckId] = false;
 
+    // Track played history
+    setPlayedTrackIds(prev => prev.includes(track.id) ? prev : [...prev, track.id]);
+
     nodesRef.current[deckId].buffer = track.buffer;
     nodesRef.current[deckId].pausedAt = 0;
 
@@ -828,6 +832,7 @@ export function useAudioEngine({ library, addLog }) {
     eqOrder,
     setEqOrder,
     resyncDecks,
+    playedTrackIds,
     sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,

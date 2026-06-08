@@ -183,3 +183,23 @@
   border-color: var(--border-color);
   color: var(--text-main);
 }
+
+/* Warning badge for already-played tracks */
+.played-warning-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 159, 28, 0.12);
+  border: 1px solid var(--neon-orange);
+  color: var(--neon-orange);
+  border-radius: 50%;
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 900;
+  margin-right: 0.35rem;
+  text-shadow: 0 0 5px rgba(255, 159, 28, 0.4);
+  box-shadow: 0 0 5px rgba(255, 159, 28, 0.15);
+  vertical-align: middle;
+}
