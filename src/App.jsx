@@ -81,10 +81,26 @@ export default function App() {
         setAnalyzingProgress("Detectando punto de entrada (Intro)...");
         const introTime = detectIntro(decodedBuffer, bpm);
 
+        const fullName = file.name.replace(/\.[^/.]+$/, ""); // Strip extension
+        let artist = 'Artista Desconocido';
+        let title = fullName;
+
+        const parts = fullName.split(/\s+-\s+/);
+        if (parts.length > 1) {
+          artist = parts[0].trim();
+          title = parts.slice(1).join(' - ').trim();
+        } else {
+          const hyphenParts = fullName.split('-');
+          if (hyphenParts.length > 1) {
+            artist = hyphenParts[0].trim();
+            title = hyphenParts.slice(1).join('-').trim();
+          }
+        }
+
         const newTrack = {
           id: 'local-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-          title: file.name.replace(/\.[^/.]+$/, ""), // Strip extension
-          artist: 'Archivo Local',
+          title: title,
+          artist: artist,
           bpm: bpm,
           key: keyData.camelot,
           keyName: keyData.keyName,
