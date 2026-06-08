@@ -35,9 +35,14 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Intelligent Auto-DJ Engine:** Monitors the playing deck and, upon reaching the Outro point, loads a compatible track from the library into the free deck, syncs its BPM, performs high-precision beatmatching phase alignment, and triggers the transition.
 *   **Complete Manual Mixer:**
     *   Three-band rotary EQs per channel (Lows, Mids, Highs).
-    *   High-resolution pitch/speed faders with a range of ±20%.
+    *   High-resolution pitch/speed faders with a range of ±10% (matching Pioneer CDJ industry standard).
     *   Channel volume faders aligned vertically next to EQs for direct channel mixing.
     *   Master BPM selector (defaulting to 128 BPM) that automatically locks loaded track speeds.
+    *   **Phase & BPM SYNC Controls:** A central sync button between the decks to align beat phases ($\theta$ compás alignment) and BPMs in real-time, resolving any phase drift.
+*   **Draggable EQ Precedence Pills:** Dynamic 3-phase transition reordering. Choose which frequency band (LOWS, MIDS, HIGHS) is mixed 1st, 2nd, and 3rd using native drag-and-drop.
+*   **Audio-Rhythmic Pulsating Glow:** Decks pulse and glow in sync with the beat of the song using a cubic decay algorithm, providing direct visual feedback for beatmatching.
+*   **Played Track Indicators:** Displays a warning indicator badge `!` next to already played tracks in the library list to prevent repeat track selections.
+*   **Manual Override Support:** Auto-DJ respects user-selected tracks loaded onto the incoming deck instead of automatically overwriting them.
 *   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
 *   **DJ Activity Log Console:** Real-time ticker displaying the mathematical and logical steps taken by the mixer and Auto-DJ engines.
 
@@ -89,6 +94,12 @@ Two tracks are harmonically compatible if their Camelot keys are adjacent on the
 *   **Numerically Adjacent Keys:** e.g., `8A` and `9A` (energy boost), `8A` and `7A` (energy drop). The wheel handles circular transitions between `12` and `1`.
 *   **Relative Major/Minor Swap:** Swapping letters while keeping the same number, e.g., `8A` (A minor) and `8B` (C major).
 
+### 6. Tempo/BPM Compatibility
+To ensure natural sound quality and prevent extreme pitch bending when mixing, the system enforces a strict tempo difference threshold. Tracks are considered compatible if:
+*   The original BPM of the target track is within **±5%** of the currently playing track's BPM.
+*   This ensures that the pitch fader adjustment (limited to the ±10% Pioneer standard) can lock the BPMs without causing unwanted vocal or instrumental distortion.
+*   Incompatible tracks are visually dimmed in the library list, indicating they are not recommended for automated or manual transitions.
+
 ---
 
 ## 🎛️ Auto-DJ Transition Engine
@@ -109,20 +120,21 @@ To prevent clashing drumbeats (known as "trainwrecking"):
 5.  Schedules a synchronized start: `source.start(AudioContext.currentTime + delay)`.
 
 ### 3-Phase EQ & Volume Transition
-Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the new track's intro duration. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
+Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the new track's intro duration. The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
 
 ```mermaid
 graph TD
-    A[Outro Reached] --> B[Fase 1: Mids Swap - Voice/Melodies crossover]
-    B --> C[Fase 2: Lows Swap - Bassline swap]
-    C --> D[Fase 3: Highs Swap - Groove/Hats crossover]
+    A[Outro Reached] --> B["Phase 1 (User Defined)"]
+    B --> C["Phase 2 (User Defined)"]
+    C --> D["Phase 3 (User Defined)"]
     D --> E[Transition Done: Reset Outgoing Deck]
 ```
 
 *   **Initialization:** The incoming deck starts playing at full volume (`volume = 1.0`), but its EQ nodes are initialized fully attenuated (`low = -40dB`, `mid = -40dB`, `high = -40dB`) to avoid muddying the master signal.
-*   **Phase 1 (Mids Swap):** The mid-frequencies (voices and lead melodies) of the incoming deck rise from -40dB to 0dB, while the outgoing deck's mids decrease from 0dB to -40dB.
-*   **Phase 2 (Lows Swap):** The low-frequencies (kick drum and sub-bass) swap. The incoming deck's bass rises to 0dB, while the outgoing deck's bass drops to -40dB.
-*   **Phase 3 (Highs Swap):** The high-frequencies (hi-hats and percussion sizzle) swap. The incoming deck's treble rises to 0dB, while the outgoing deck's treble drops to -40dB.
+*   **Dynamic Phase Ordering:** The mixing sequence is calculated using the custom user-selected `eqOrder` configuration:
+    *   **Mids Swap (`MIDS`):** Leads, vocals, and melodies crossover. The incoming deck's mids rise from -40dB to 0dB, while the outgoing deck's mids drop to -40dB.
+    *   **Lows Swap (`LOWS`):** Kick drum and bassline crossover. The incoming deck's bass rises from -40dB to 0dB, while the outgoing deck's bass drops to -40dB.
+    *   **Highs Swap (`HIGHS`):** Hi-hats, percussions, and groove crossover. The incoming deck's treble rises from -40dB to 0dB, while the outgoing deck's treble drops to -40dB.
 *   **Completion:** The outgoing deck is stopped, its EQs and volumes are reset to defaults, and the crossfader is centered on the new active deck.
 
 ---
