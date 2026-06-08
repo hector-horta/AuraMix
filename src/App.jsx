@@ -44,6 +44,8 @@ export default function App() {
     changeMasterBpm,
     setAutoDj,
     autoDj,
+    eqOrder,
+    setEqOrder,
     sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,
@@ -227,6 +229,8 @@ export default function App() {
             library={library}
             autoDj={autoDj}
             onAutoDjToggle={(e) => setAutoDj(e.target.checked)}
+            eqOrder={eqOrder}
+            onEqOrderChange={setEqOrder}
             sessionElapsedTime={sessionElapsedTime}
             activeTrack={activeTrack}
           />

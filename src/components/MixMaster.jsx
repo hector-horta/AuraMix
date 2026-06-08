@@ -1,6 +1,7 @@
 import React from 'react'
 import { Sliders, Music, Clock, Disc } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
+import EqOrderPills from './EqOrderPills'
 import './MixMaster.css'
 
 export default function MixMaster({
@@ -9,6 +10,8 @@ export default function MixMaster({
   library,
   autoDj,
   onAutoDjToggle,
+  eqOrder,
+  onEqOrderChange,
   sessionElapsedTime,
   activeTrack
 }) {
@@ -84,18 +87,25 @@ export default function MixMaster({
 
         {/* Auto-DJ Control */}
         <div className="mix-master-autodj-container">
-          <div className="autodj-header-group">
-            <Disc className={`mix-master-icon ${autoDj ? 'autodj-icon-spinning' : ''}`} size={16} />
-            <span className="section-label">AUTO-DJ</span>
+          <div className="autodj-switch-wrapper">
+            <div className="autodj-header-group">
+              <Disc className={`mix-master-icon ${autoDj ? 'autodj-icon-spinning' : ''}`} size={16} />
+              <span className="section-label">AUTO-DJ</span>
+            </div>
+            <label className="switch">
+              <input 
+                type="checkbox" 
+                checked={autoDj} 
+                onChange={onAutoDjToggle}
+              />
+              <span className="slider-toggle"></span>
+            </label>
           </div>
-          <label className="switch">
-            <input 
-              type="checkbox" 
-              checked={autoDj} 
-              onChange={onAutoDjToggle}
-            />
-            <span className="slider-toggle"></span>
-          </label>
+          <EqOrderPills
+            eqOrder={eqOrder}
+            onOrderChange={onEqOrderChange}
+            disabled={!autoDj}
+          />
         </div>
       </div>
 

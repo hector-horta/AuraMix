@@ -30,6 +30,7 @@ export function useAudioEngine({ library, addLog }) {
 
 
   const [autoDj, setAutoDj] = useState(true);
+  const [eqOrder, setEqOrder] = useState(['mid', 'low', 'high']);
   const [activeDeckId, setActiveDeckId] = useState('A'); // 'A' or 'B'
   const [masterBpm, setMasterBpm] = useState(128); // Default to 128 BPM
   const [transitionState, setTransitionState] = useState({
@@ -336,67 +337,70 @@ export function useAudioEngine({ library, addLog }) {
       setDeckB(prev => ({ ...prev, volume: 1.0 }));
     }
 
-    // Phase 1: Mids Swap
-    nodesFrom.midPeaking.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.mid : deckB.eq.mid, t0);
-    nodesFrom.midPeaking.gain.linearRampToValueAtTime(-40, t1);
-    nodesTo.midPeaking.gain.setValueAtTime(-40, t0);
-    nodesTo.midPeaking.gain.linearRampToValueAtTime(0, t1);
-    
-    nodesTo.lowShelf.gain.setValueAtTime(-40, t0);
-    nodesTo.lowShelf.gain.setValueAtTime(-40, t1);
-    nodesTo.highShelf.gain.setValueAtTime(-40, t0);
-    nodesTo.highShelf.gain.setValueAtTime(-40, t1);
-    
-    nodesFrom.lowShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.low : deckB.eq.low, t0);
-    nodesFrom.lowShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.low : deckB.eq.low, t1);
-    nodesFrom.highShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.high : deckB.eq.high, t0);
-    nodesFrom.highShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.high : deckB.eq.high, t1);
+    const times = [t0, t1, t2, t3];
+    const BAND_NODES = {
+      low: 'lowShelf',
+      mid: 'midPeaking',
+      high: 'highShelf'
+    };
 
-    // Phase 2: Lows Swap
-    nodesFrom.lowShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.low : deckB.eq.low, t1);
-    nodesFrom.lowShelf.gain.linearRampToValueAtTime(-40, t2);
-    nodesTo.lowShelf.gain.setValueAtTime(-40, t1);
-    nodesTo.lowShelf.gain.linearRampToValueAtTime(0, t2);
-    
-    nodesTo.midPeaking.gain.setValueAtTime(0, t1);
-    nodesTo.midPeaking.gain.setValueAtTime(0, t2);
-    nodesTo.highShelf.gain.setValueAtTime(-40, t1);
-    nodesTo.highShelf.gain.setValueAtTime(-40, t2);
-    
-    nodesFrom.midPeaking.gain.setValueAtTime(-40, t1);
-    nodesFrom.midPeaking.gain.setValueAtTime(-40, t2);
-    nodesFrom.highShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.high : deckB.eq.high, t1);
-    nodesFrom.highShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.high : deckB.eq.high, t2);
+    // Schedule EQs dynamically for each of the 3 phases
+    for (let p = 0; p < 3; p++) {
+      const startTimePhase = times[p];
+      const endTimePhase = times[p + 1];
 
-    // Phase 3: Highs Swap
-    nodesFrom.highShelf.gain.setValueAtTime(fromDeckId === 'A' ? deckA.eq.high : deckB.eq.high, t2);
-    nodesFrom.highShelf.gain.linearRampToValueAtTime(-40, t3);
-    nodesTo.highShelf.gain.setValueAtTime(-40, t2);
-    nodesTo.highShelf.gain.linearRampToValueAtTime(0, t3);
-    
-    nodesTo.midPeaking.gain.setValueAtTime(0, t2);
-    nodesTo.midPeaking.gain.setValueAtTime(0, t3);
-    nodesTo.lowShelf.gain.setValueAtTime(0, t2);
-    nodesTo.lowShelf.gain.setValueAtTime(0, t3);
-    
-    nodesFrom.midPeaking.gain.setValueAtTime(-40, t2);
-    nodesFrom.midPeaking.gain.setValueAtTime(-40, t3);
-    nodesFrom.lowShelf.gain.setValueAtTime(-40, t2);
-    nodesFrom.lowShelf.gain.setValueAtTime(-40, t3);
+      eqOrder.forEach((band, j) => {
+        const nodeFrom = nodesFrom[BAND_NODES[band]];
+        const nodeTo = nodesTo[BAND_NODES[band]];
+        const initialVal = fromDeckId === 'A' ? deckA.eq[band] : deckB.eq[band];
+
+        if (j === p) {
+          // This band swaps in this phase
+          nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
+          nodeFrom.gain.linearRampToValueAtTime(-40, endTimePhase);
+          
+          nodeTo.gain.setValueAtTime(-40, startTimePhase);
+          nodeTo.gain.linearRampToValueAtTime(0, endTimePhase);
+        } else if (j < p) {
+          // Already swapped, stays at swapped values
+          nodeFrom.gain.setValueAtTime(-40, startTimePhase);
+          nodeFrom.gain.setValueAtTime(-40, endTimePhase);
+          
+          nodeTo.gain.setValueAtTime(0, startTimePhase);
+          nodeTo.gain.setValueAtTime(0, endTimePhase);
+        } else {
+          // Not yet swapped, stays at initial values
+          nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
+          nodeFrom.gain.setValueAtTime(initialVal, endTimePhase);
+          
+          nodeTo.gain.setValueAtTime(-40, startTimePhase);
+          nodeTo.gain.setValueAtTime(-40, endTimePhase);
+        }
+      });
+    }
+
+    const bandDetails = {
+      mid: { phase: 'mids', msg: "Mezclando frecuencias medias (Voces/Melodías)..." },
+      low: { phase: 'lows', msg: "Intercambiando frecuencias bajas (Bassline Swap)..." },
+      high: { phase: 'highs', msg: "Mezclando frecuencias altas (Hats/Groove)..." }
+    };
 
     setTimeout(() => {
-      setTransitionState(prev => ({ ...prev, phase: 'mids', progress: 15 }));
-      addLog("Transición [1/3]: Mezclando frecuencias medias (Voces/Melodías)...");
+      const b = eqOrder[0];
+      setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 15 }));
+      addLog(`Transición [1/3]: ${bandDetails[b].msg}`);
     }, delay * 1000);
 
     setTimeout(() => {
-      setTransitionState(prev => ({ ...prev, phase: 'lows', progress: 50 }));
-      addLog("Transición [2/3]: Intercambiando frecuencias bajas (Bassline Swap)...");
+      const b = eqOrder[1];
+      setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 50 }));
+      addLog(`Transición [2/3]: ${bandDetails[b].msg}`);
     }, (delay + phaseDuration) * 1000);
 
     setTimeout(() => {
-      setTransitionState(prev => ({ ...prev, phase: 'highs', progress: 85 }));
-      addLog("Transición [3/3]: Mezclando frecuencias altas (Hats/Groove)...");
+      const b = eqOrder[2];
+      setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 85 }));
+      addLog(`Transición [3/3]: ${bandDetails[b].msg}`);
     }, (delay + 2 * phaseDuration) * 1000);
 
     setTimeout(() => {
@@ -751,6 +755,8 @@ export function useAudioEngine({ library, addLog }) {
     changeMasterBpm,
     setAutoDj,
     autoDj,
+    eqOrder,
+    setEqOrder,
     sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,

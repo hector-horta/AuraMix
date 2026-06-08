@@ -115,11 +115,25 @@
 /* Auto-DJ toggle container */
 .mix-master-autodj-container {
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.5rem;
+  justify-self: center;
+  height: fit-content;
+}
+
+.autodj-switch-wrapper {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  justify-self: center;
-  height: fit-content;
+}
+
+@media (max-width: 480px) {
+  .mix-master-autodj-container {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
 }
 
 .autodj-header-group {

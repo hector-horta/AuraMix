@@ -19,8 +19,10 @@ export default function Deck({
   const playedColor = isCyan ? '#00f0ff' : '#ff007f';
   const unplayedColor = isCyan ? '#17496e' : '#6d1844';
 
+  const playingClass = deck.isPlaying ? `deck-playing-${accentColor}` : '';
+
   return (
-    <section className={`panel deck deck-${deckId.toLowerCase()} ${isActive ? `panel-active-${accentColor}` : ''}`}>
+    <section className={`panel deck deck-${deckId.toLowerCase()} ${isActive ? `panel-active-${accentColor}` : ''} ${playingClass}`}>
       <div className="deck-header">
         <span className="deck-label">Deck {deckId}</span>
         {deck.track && (
