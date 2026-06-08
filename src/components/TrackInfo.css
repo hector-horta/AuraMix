@@ -113,20 +113,6 @@
   border-color: var(--neon-pink);
 }
 
-.compatibility-status {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
-}
-
-.status-compatible {
-  color: var(--neon-green);
-  text-shadow: 0 0 5px rgba(57, 255, 20, 0.3);
-}
-
-.status-incompatible {
-  color: var(--text-dark);
-}
 
 .track-item.playing-a {
   border-color: var(--neon-cyan);

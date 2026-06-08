@@ -60,12 +60,6 @@ export default function TrackInfo({
           </button>
         </div>
 
-        {/* Compatibility badge */}
-        {activeTrack && activeTrack.id !== track.id && (
-          <span className={`compatibility-status ${isCompatBpm && isCompatKey ? 'status-compatible' : 'status-incompatible'}`}>
-            {isCompatBpm && isCompatKey ? "✓ Compatible" : "Incompatible"}
-          </span>
-        )}
 
         <button 
           onClick={(e) => onDeleteTrack(track.id, e)}
