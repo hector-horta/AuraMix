@@ -78,8 +78,8 @@ export default function Deck({
               </div>
               <input 
                 type="range" 
-                min="-20" 
-                max="20" 
+                min="-10" 
+                max="10" 
                 step="0.1"
                 value={deck.pitch} 
                 onChange={(e) => onPitchChange(e.target.value)}

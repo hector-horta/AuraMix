@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sliders } from 'lucide-react'
+import { Sliders, RefreshCw } from 'lucide-react'
 import EqKnob from './EqKnob'
 import './MixerPanel.css'
 
@@ -8,7 +8,8 @@ export default function MixerPanel({
   deckB,
   transitionActive,
   onEqChange,
-  onVolumeChange
+  onVolumeChange,
+  onResync
 }) {
   return (
     <div className="panel mixer-panel" style={{ marginTop: '1.5rem' }}>
@@ -54,6 +55,19 @@ export default function MixerPanel({
             value={deckA.eq.low} 
             onChange={(val) => onEqChange('A', 'low', val)} 
           />
+        </div>
+
+        {/* Central Sync Control */}
+        <div className="mixer-sync-column">
+          <button 
+            onClick={onResync} 
+            className="sync-btn"
+            disabled={!(deckA.isPlaying && deckB.isPlaying)}
+            title={!(deckA.isPlaying && deckB.isPlaying) ? "Ambos decks deben estar sonando para resincronizar" : "Sincronizar fase y compás de ambos decks"}
+          >
+            <RefreshCw className="sync-icon" size={16} />
+            <span>SYNC</span>
+          </button>
         </div>
 
         {/* Deck B EQs */}

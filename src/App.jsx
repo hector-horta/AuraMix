@@ -46,6 +46,7 @@ export default function App() {
     autoDj,
     eqOrder,
     setEqOrder,
+    resyncDecks,
     sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,
@@ -268,6 +269,7 @@ export default function App() {
             transitionActive={transitionState.active}
             onEqChange={handleEqChange}
             onVolumeChange={handleVolumeChange}
+            onResync={resyncDecks}
           />
         </main>
 

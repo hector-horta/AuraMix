@@ -9,7 +9,7 @@ export function useAudioEngine({ library, addLog }) {
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    pitch: 0, // pitch fader offset (-20% to +20%)
+    pitch: 0, // pitch fader offset (-10% to +10%)
     volume: 1.0,
     eq: { low: 0, mid: 0, high: 0 }, // values in dB (-40 to 12)
     outroTime: 0,
@@ -213,7 +213,7 @@ export function useAudioEngine({ library, addLog }) {
       if (track.id === currentTrack.id && library.length > 1) return false;
       
       const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
-      const bpmCompatible = bpmDiffPercent <= 0.016;
+      const bpmCompatible = bpmDiffPercent <= 0.05;
       const keyCompatible = areKeysCompatible(track.key, currentTrack.key);
 
       return bpmCompatible && keyCompatible;
@@ -739,6 +739,70 @@ export function useAudioEngine({ library, addLog }) {
     }
   }, [deckA.volume, deckB.volume, transitionState.active]);
 
+  const resyncDecks = () => {
+    if (!deckA.isPlaying || !deckB.isPlaying) {
+      addLog("Sincronización: Ambos decks deben estar reproduciéndose para resincronizar.");
+      return;
+    }
+
+    const masterId = activeDeckId; // 'A' or 'B'
+    const slaveId = masterId === 'A' ? 'B' : 'A';
+    const masterDeck = masterId === 'A' ? deckA : deckB;
+    const slaveDeck = slaveId === 'A' ? deckA : deckB;
+
+    if (!masterDeck.track || !slaveDeck.track) return;
+
+    // 1. BPM/Pitch matching
+    const masterBpmVal = masterBpm;
+    const slaveOriginalBpm = slaveDeck.track.bpm;
+    const targetPitch = ((masterBpmVal - slaveOriginalBpm) / slaveOriginalBpm) * 100;
+
+    updatePitch(slaveId, targetPitch);
+    if (slaveId === 'A') {
+      setDeckA(prev => ({ ...prev, pitch: targetPitch }));
+    } else {
+      setDeckB(prev => ({ ...prev, pitch: targetPitch }));
+    }
+
+    // 2. Phase Alignment
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const t_master = masterDeck.currentTime;
+    const t_slave = slaveDeck.currentTime;
+
+    const firstBeatOffsetMaster = masterDeck.track.firstBeatOffset || 0.0;
+    const firstBeatOffsetSlave = slaveDeck.track.firstBeatOffset || 0.0;
+
+    const beatDurationMaster = 60 / masterDeck.track.bpm;
+    const beatDurationSlave = 60 / slaveDeck.track.bpm;
+
+    const elapsedMaster = t_master - firstBeatOffsetMaster;
+    const phaseMaster = ((elapsedMaster % beatDurationMaster) + beatDurationMaster) % beatDurationMaster / beatDurationMaster;
+
+    const k = Math.round((t_slave - firstBeatOffsetSlave) / beatDurationSlave - phaseMaster);
+    let targetTime = firstBeatOffsetSlave + (k + phaseMaster) * beatDurationSlave;
+
+    if (targetTime < 0) targetTime = 0;
+    if (targetTime > slaveDeck.duration) targetTime = slaveDeck.duration;
+
+    const nodesSlave = nodesRef.current[slaveId];
+    nodesSlave.pausedAt = targetTime;
+
+    if (slaveDeck.isPlaying) {
+      playDeckSource(slaveId);
+      nodesSlave.startTime = ctx.currentTime;
+    }
+
+    if (slaveId === 'A') {
+      setDeckA(prev => ({ ...prev, currentTime: targetTime }));
+    } else {
+      setDeckB(prev => ({ ...prev, currentTime: targetTime }));
+    }
+
+    addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
+  };
+
   return {
     deckA,
     deckB,
@@ -757,6 +821,7 @@ export function useAudioEngine({ library, addLog }) {
     autoDj,
     eqOrder,
     setEqOrder,
+    resyncDecks,
     sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,

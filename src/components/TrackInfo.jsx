@@ -17,7 +17,7 @@ export default function TrackInfo({
   
   if (activeTrack) {
     const bpmDiffPercent = Math.abs(track.bpm - activeTrack.bpm) / activeTrack.bpm;
-    isCompatBpm = bpmDiffPercent <= 0.016;
+    isCompatBpm = bpmDiffPercent <= 0.05;
     isCompatKey = areKeysCompatible(track.key, activeTrack.key);
   }
 
