@@ -452,6 +452,7 @@ export function useAudioEngine({ library, addLog }) {
 
     const currentDeck = playingDeckId === 'A' ? deckA : deckB;
     const targetDeckId = playingDeckId === 'A' ? 'B' : 'A';
+    const targetDeck = targetDeckId === 'A' ? deckA : deckB;
 
     const triggerTime = currentDeck.outroTime;
     
@@ -459,13 +460,18 @@ export function useAudioEngine({ library, addLog }) {
       transitionCheckedRef.current[playingDeckId] = true;
       addLog(`Auto-DJ: ¡Punto Outro alcanzado en Deck ${playingDeckId} (${triggerTime.toFixed(1)}s)!`);
       
-      const compatibleTrack = findCompatibleTrack(currentDeck.track);
-      
-      if (compatibleTrack) {
-        addLog(`Auto-DJ: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
-        loadTrackIntoDeck(compatibleTrack, targetDeckId, true);
+      if (targetDeck.track) {
+        addLog(`Auto-DJ: Usando canción cargada manualmente "${targetDeck.track.title}" en Deck ${targetDeckId} para la mezcla.`);
+        triggerAutomatedTransition(playingDeckId, targetDeckId, targetDeck.track);
       } else {
-        addLog(`Auto-DJ Advertencia: No hay canciones compatibles en la biblioteca (BPM ±1.6% y Camelot Key compatible).`);
+        const compatibleTrack = findCompatibleTrack(currentDeck.track);
+        
+        if (compatibleTrack) {
+          addLog(`Auto-DJ: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
+          loadTrackIntoDeck(compatibleTrack, targetDeckId, true);
+        } else {
+          addLog(`Auto-DJ Advertencia: No hay canciones compatibles en la biblioteca (BPM ±5.0% y Camelot Key compatible) para mezclar automáticamente.`);
+        }
       }
     }
   };

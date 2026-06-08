@@ -115,7 +115,7 @@ export default function App() {
           isDemo: false
         };
 
-        setLibrary(prev => [...prev, newTrack]);
+        setLibrary(prev => [newTrack, ...prev]);
         addLog(`Analizado con éxito: "${newTrack.title}" (${bpm} BPM, Tono: ${keyData.camelot}, Intro/Drop: ${introTime.toFixed(1)}s, Outro: ${outroTime.toFixed(1)}s)`);
       } catch (err) {
         console.error(err);

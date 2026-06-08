@@ -8,6 +8,20 @@
   gap: 0.4rem;
   cursor: pointer;
   transition: all var(--transition-fast);
+  
+  /* Slide out of the analysis factory card on mount */
+  animation: slide-from-factory 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes slide-from-factory {
+  0% {
+    transform: translateY(-80px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .track-item:hover {
