@@ -38,9 +38,14 @@ export function useAudioEngine({ library, addLog }) {
     progress: 0
   });
 
+  const [sessionElapsedTime, setSessionElapsedTime] = useState(0);
+
   // Refs to prevent multiple transition triggers/warnings in rapid succession
   const transitionActiveRef = useRef(false);
   const transitionCheckedRef = useRef({ A: false, B: false });
+  const lastSecsRef = useRef(0);
+  const elapsedAccumulatorRef = useRef(0);
+  const lastFrameTimeRef = useRef(performance.now());
 
   // --- REFS FOR WEB AUDIO API ---
   const audioCtxRef = useRef(null);
@@ -664,8 +669,22 @@ export function useAudioEngine({ library, addLog }) {
     const updatePlaybackProgress = () => {
       const ctx = audioCtxRef.current;
       if (!ctx) {
+        lastFrameTimeRef.current = performance.now();
         animationRef.current = requestAnimationFrame(updatePlaybackProgress);
         return;
+      }
+
+      const now = performance.now();
+      const dt = (now - lastFrameTimeRef.current) / 1000;
+      lastFrameTimeRef.current = now;
+
+      if (deckA.isPlaying || deckB.isPlaying) {
+        elapsedAccumulatorRef.current += dt;
+        const currentSecs = Math.floor(elapsedAccumulatorRef.current);
+        if (currentSecs !== lastSecsRef.current) {
+          lastSecsRef.current = currentSecs;
+          setSessionElapsedTime(currentSecs);
+        }
       }
 
       if (deckA.isPlaying) {
@@ -699,6 +718,7 @@ export function useAudioEngine({ library, addLog }) {
       animationRef.current = requestAnimationFrame(updatePlaybackProgress);
     };
 
+    lastFrameTimeRef.current = performance.now();
     animationRef.current = requestAnimationFrame(updatePlaybackProgress);
     return () => cancelAnimationFrame(animationRef.current);
   }, [deckA.isPlaying, deckA.duration, deckB.isPlaying, deckB.duration, autoDj, transitionState.active]);
@@ -731,6 +751,7 @@ export function useAudioEngine({ library, addLog }) {
     changeMasterBpm,
     setAutoDj,
     autoDj,
+    sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,
     initAudio,

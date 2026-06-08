@@ -91,12 +91,14 @@
 
 .knob-marker {
   position: absolute;
-  width: 2px;
-  height: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--text-muted);
-  top: 2px;
-  left: calc(50% - 1px);
-  transform-origin: bottom center;
+  top: 6px;
+  left: calc(50% - 3px);
+  transform-origin: 50% 15px;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .eq-deck-a .knob-marker-active {

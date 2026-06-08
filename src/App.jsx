@@ -16,7 +16,7 @@ import LibraryPanel from './components/LibraryPanel'
 import CamelotPanel from './components/CamelotPanel'
 import { useAudioEngine } from './hooks/useAudioEngine'
 import Deck from './components/Deck'
-import MasterBpmSelector from './components/MasterBpmSelector'
+import MixMaster from './components/MixMaster'
 import MixerPanel from './components/MixerPanel'
 
 
@@ -44,6 +44,7 @@ export default function App() {
     changeMasterBpm,
     setAutoDj,
     autoDj,
+    sessionElapsedTime,
     activeDeckId,
     setActiveDeckId,
     initAudio,
@@ -181,7 +182,7 @@ export default function App() {
   return (
     <div className="container">
       {/* --- HEADER --- */}
-      <Header isPlaying={deckA.isPlaying || deckB.isPlaying} autoDj={autoDj} libraryCount={library.length} />
+      <Header isPlaying={deckA.isPlaying || deckB.isPlaying} />
 
       {/* --- APP MAIN GRID --- */}
       <div className="app-grid">
@@ -203,8 +204,16 @@ export default function App() {
 
         {/* --- CENTER SECTION: DECKS & MIXER --- */}
         <main className="decks-area">
-          {/* Master BPM Selector */}
-          <MasterBpmSelector masterBpm={masterBpm} onChangeMasterBpm={changeMasterBpm} />
+          {/* Mix Master Panel */}
+          <MixMaster
+            masterBpm={masterBpm}
+            onChangeMasterBpm={changeMasterBpm}
+            library={library}
+            autoDj={autoDj}
+            onAutoDjToggle={(e) => setAutoDj(e.target.checked)}
+            sessionElapsedTime={sessionElapsedTime}
+            activeTrack={activeTrack}
+          />
 
           {/* Decks Grid */}
           <div className="decks-grid">
@@ -245,10 +254,8 @@ export default function App() {
         {/* --- RIGHT SIDEBAR: CAMELOT DASHBOARD & LOGS --- */}
         <CamelotPanel
           activeTrack={activeTrack}
-          autoDj={autoDj}
           transitionState={transitionState}
           logs={djLogs}
-          onAutoDjToggle={(e) => setAutoDj(e.target.checked)}
         />
 
       </div>

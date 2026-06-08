@@ -8,7 +8,7 @@ export default function EqKnob({ label, value, onChange }) {
     onChange(nextVal);
   };
 
-  const rotation = (value + 40) * (270 / 52) - 135;
+  const rotation = value === 0 ? 0 : value > 0 ? (value / 6) * 75 : (value / 40) * 135;
 
   return (
     <div className="eq-knob-container">
