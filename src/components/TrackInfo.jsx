@@ -1,6 +1,7 @@
 import React from 'react'
 import { Trash2 } from 'lucide-react'
 import { areKeysCompatible } from '../utils/audioAnalyzer'
+import './TrackInfo.css'
 
 export default function TrackInfo({
   track,
@@ -22,10 +23,12 @@ export default function TrackInfo({
 
   const isLoadedOnA = deckA.track?.id === track.id;
   const isLoadedOnB = deckB.track?.id === track.id;
+  const isCurrentTrack = activeTrack?.id === track.id;
+  const isIncompatible = activeTrack && !isCurrentTrack && !(isCompatBpm && isCompatKey);
 
   return (
     <div 
-      className={`track-item ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''}`}
+      className={`track-item ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''}`}
     >
       <div className="track-item-main">
         <div className="track-item-title-group">
