@@ -14,7 +14,8 @@ export default function LibraryPanel({
   onLoadDemos,
   onFileUpload,
   onLoadTrack,
-  onDeleteTrack
+  onDeleteTrack,
+  djMode
 }) {
   return (
     <section className="panel library-panel">
@@ -76,6 +77,7 @@ export default function LibraryPanel({
               deckB={deckB}
               playedTrackIds={playedTrackIds}
               libraryLength={library.length}
+              djMode={djMode}
               onLoadTrack={onLoadTrack}
               onDeleteTrack={onDeleteTrack}
             />

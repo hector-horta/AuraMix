@@ -6,7 +6,12 @@
   width: 100%;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.03);
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none; /* Prevent mobile drag scrolling */
+}
+
+.waveform-container:active {
+  cursor: grabbing;
 }
 
 .waveform-canvas {

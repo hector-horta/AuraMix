@@ -42,6 +42,11 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
     *   Channel volume faders aligned vertically next to EQs for direct channel mixing.
     *   Master BPM selector (defaulting to 128 BPM) that automatically locks loaded track speeds.
     *   **Phase & BPM SYNC Controls:** A central sync button between the decks to align beat phases ($\theta$ compás alignment) and BPMs in real-time, resolving any phase drift.
+*   **Vinyl Mode Jog-Wheel Emulation:** Switchable vinyl mode on each deck with neon glows:
+    *   **Vinyl Mode ON:** Touching the upper half of the waveform frens playback with a realistic tape stop brake effect, and dragging scratches the playhead forward and backward (using velocity-mapped negative playback rates). Dragging the lower half performs pitch bending (nudging the tempo).
+    *   **Vinyl Mode OFF:** Dragging anywhere on the waveform container bends the pitch. Normal speed restores instantly on release.
+    *   **Quick Clicks:** Click-seeking is preserved for fast navigation.
+    *   **Mixing Protections:** Platter interactions are disabled on active decks during transitions to avoid scheduling conflicts.
 *   **Draggable EQ Precedence Pills:** Dynamic 3-phase transition reordering. Choose which frequency band (LOWS, MIDS, HIGHS) is mixed 1st, 2nd, and 3rd using native drag-and-drop. Disabled when not in Auto-DJ mode.
 *   **Audio-Rhythmic Pulsating Glow:** Decks pulse and glow in sync with the beat of the song using a cubic decay algorithm, providing direct visual feedback for beatmatching.
 *   **Intelligent Track Indicators & Badges:** Displays dynamic state badges next to songs in the library list:
@@ -163,6 +168,32 @@ graph TD
 *   **Volume Crossfade:** The outgoing deck volume is linearly ramped from its active volume level to `0.0` using Web Audio `gainNode.gain.linearRampToValueAtTime(0.0, t3)`. Simultaneously, the incoming deck volume is linearly ramped from `0.0` to `1.0`.
 *   **Tempo Ramp:** The playback rate of the outgoing deck is linearly ramped to match the incoming track's native tempo.
 *   **Completion:** The outgoing deck is stopped and reset. The global Master BPM is updated to match the incoming track's native BPM.
+
+---
+
+## 🎛️ Vinyl Mode (Turntable Platter Emulation)
+
+Each deck has a dedicated **VINYL** mode switch in the header. When enabled, dragging or clicking on the waveform emulates a real Pioneer CDJ jog-wheel platter:
+
+### 1. Tape Stop & Spin Up (Brake / Arranque)
+*   **Turntable Brake:** Pressing down (mouse down / touch start) on the **upper half** (Scratch Zone) of the waveform triggers a Tape Stop effect. The playback rate linearly decelerates to `0.01` over 180ms.
+*   **Turntable Spin Up:** Releasing the press (mouse up / touch end) on a playing track triggers a Tape Start effect. The engine restarts the source at the current position and accelerates the playback rate back to normal speed over 180ms.
+
+### 2. Live Vinyl Scratching
+*   Dragging horizontally left or right on the **upper half** of the waveform performs real-time scratching.
+*   **Velocity Mapping:** The scratch pitch and direction are determined by calculating the drag velocity ($v = \Delta x / \Delta t$).
+*   **Negative Playback Rate:** The engine leverages Web Audio API's support for negative playback rates in Google Chrome. Moving the cursor right plays forward (positive rate), and moving the cursor left plays backward (negative rate: `source.playbackRate.value < 0`).
+*   **Boundary Safeguard:** To prevent Chrome from terminating the source node if it plays backwards and hits `0.0` seconds, the playhead time is strictly clamped to a safe boundary of `[0.05, duration - 0.05]` seconds.
+
+### 3. Pitch Bend (Nudge)
+*   **Vinyl Mode ON (Lower Half):** Dragging on the lower half (Nudge Zone) temporarily bends the pitch (nudges the playback rate faster or slower depending on the direction of drag) to adjust the beat alignment.
+*   **Vinyl Mode OFF:** Dragging anywhere on the waveform container applies a pitch bend nudge. Playback speed returns to normal immediately upon release.
+
+### 4. Click Seeking
+*   If the mouse is pressed and released quickly without a drag (horizontal displacement < 6px and duration < 220ms), it is processed as a standard **Seek** action to jump directly to the clicked point.
+
+### 5. Active Transition Safeguard
+*   To prevent signal clashes and scheduling conflicts, manual scratching and pitch bending are disabled on any deck that is actively performing an automated transition (Auto-DJ or Jukebox).
 
 ---
 

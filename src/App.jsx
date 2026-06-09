@@ -55,7 +55,11 @@ export default function App() {
     initAudio,
     audioCtxRef,
     fxState,
-    updateFx
+    updateFx,
+    toggleVinylMode,
+    startScratch,
+    updateScratch,
+    stopScratch
   } = useAudioEngine({ library, addLog });
 
   // --- AUDIO FILE UPLOAD & ANALYSIS ---
@@ -224,6 +228,7 @@ export default function App() {
           onFileUpload={handleFileUpload}
           onLoadTrack={loadTrackIntoDeck}
           onDeleteTrack={deleteTrack}
+          djMode={djMode}
         />
 
         {/* --- CENTER SECTION: DECKS & MIXER --- */}
@@ -253,6 +258,10 @@ export default function App() {
               onSeek={(percent) => seekTo('A', percent)}
               onJumpToOutro={() => jumpToOutro('A')}
               onPitchChange={(val) => handlePitchChange('A', val)}
+              onToggleVinyl={() => toggleVinylMode('A')}
+              onScratchStart={(isUpperHalf, clientX, clientY, rect) => startScratch('A', isUpperHalf, clientX, clientY, rect)}
+              onScratchMove={(clientX, width) => updateScratch('A', clientX, width)}
+              onScratchEnd={(isQuickClick, clickPercent) => stopScratch('A', isQuickClick, clickPercent)}
               accentColor="cyan"
             />
             <Deck
@@ -264,6 +273,10 @@ export default function App() {
               onSeek={(percent) => seekTo('B', percent)}
               onJumpToOutro={() => jumpToOutro('B')}
               onPitchChange={(val) => handlePitchChange('B', val)}
+              onToggleVinyl={() => toggleVinylMode('B')}
+              onScratchStart={(isUpperHalf, clientX, clientY, rect) => startScratch('B', isUpperHalf, clientX, clientY, rect)}
+              onScratchMove={(clientX, width) => updateScratch('B', clientX, width)}
+              onScratchEnd={(isQuickClick, clickPercent) => stopScratch('B', isQuickClick, clickPercent)}
               accentColor="pink"
             />
           </div>

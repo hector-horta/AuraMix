@@ -13,7 +13,8 @@ export function useAudioEngine({ library, addLog }) {
     volume: 1.0,
     eq: { low: 0, mid: 0, high: 0 }, // values in dB (-40 to 12)
     outroTime: 0,
-    introTime: 0
+    introTime: 0,
+    vinylMode: true
   });
 
   const [deckB, setDeckB] = useState({
@@ -25,7 +26,8 @@ export function useAudioEngine({ library, addLog }) {
     volume: 1.0,
     eq: { low: 0, mid: 0, high: 0 },
     outroTime: 0,
-    introTime: 0
+    introTime: 0,
+    vinylMode: true
   });
 
 
@@ -40,6 +42,12 @@ export function useAudioEngine({ library, addLog }) {
     phase: 'idle', // 'idle', 'aligning', 'volume', 'mids', 'highs', 'lows', 'boost'
     progress: 0
   });
+
+  const isScratchingRef = useRef({ A: false, B: false });
+  const dragModeRef = useRef({ A: null, B: null }); // 'scratch' | 'bend' | null
+  const lastXRef = useRef({ A: 0, B: 0 });
+  const lastTimeRef = useRef({ A: 0, B: 0 });
+  const bendTimeoutRef = useRef({ A: null, B: null });
 
   const [sessionElapsedTime, setSessionElapsedTime] = useState(0);
   const [fxState, setFxState] = useState({
@@ -401,7 +409,7 @@ export function useAudioEngine({ library, addLog }) {
       if (track.id === currentTrack.id) return false;
       
       const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
-      const bpmCompatible = bpmDiffPercent <= 0.05;
+      const bpmCompatible = djMode === 'jukebox' ? true : (bpmDiffPercent <= 0.05);
       const keyCompatible = areKeysCompatible(track.key, currentTrack.key);
       
       return bpmCompatible && keyCompatible;
@@ -828,7 +836,8 @@ export function useAudioEngine({ library, addLog }) {
       volume: 1.0,
       eq: { low: 0, mid: 0, high: 0 },
       outroTime: track.outro,
-      introTime: track.intro
+      introTime: track.intro,
+      vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode
     };
 
     if (deckId === 'A') {
@@ -1015,7 +1024,7 @@ export function useAudioEngine({ library, addLog }) {
         }
       }
 
-      if (deckA.isPlaying) {
+      if (deckA.isPlaying && !isScratchingRef.current.A) {
         const nodes = nodesRef.current.A;
         const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
         const playbackRate = 1 + (nodes.pitch / 100);
@@ -1029,7 +1038,7 @@ export function useAudioEngine({ library, addLog }) {
         }
       }
 
-      if (deckB.isPlaying) {
+      if (deckB.isPlaying && !isScratchingRef.current.B) {
         const nodes = nodesRef.current.B;
         const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
         const playbackRate = 1 + (nodes.pitch / 100);
@@ -1255,6 +1264,174 @@ export function useAudioEngine({ library, addLog }) {
     }
   };
 
+  const toggleVinylMode = (deckId) => {
+    if (deckId === 'A') {
+      setDeckA(prev => {
+        const nextVal = !prev.vinylMode;
+        addLog(`Deck A: Vinyl Mode ${nextVal ? 'ACTIVADO' : 'DESACTIVADO'}.`);
+        return { ...prev, vinylMode: nextVal };
+      });
+    } else {
+      setDeckB(prev => {
+        const nextVal = !prev.vinylMode;
+        addLog(`Deck B: Vinyl Mode ${nextVal ? 'ACTIVADO' : 'DESACTIVADO'}.`);
+        return { ...prev, vinylMode: nextVal };
+      });
+    }
+  };
+
+  const startScratch = (deckId, isUpperHalf, clientX, clientY) => {
+    if (transitionState.active) {
+      addLog(`Deck ${deckId}: Interacción bloqueada durante mezcla automática.`);
+      return;
+    }
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const deck = deckId === 'A' ? deckA : deckB;
+    const nodes = nodesRef.current[deckId];
+    if (!nodes.buffer) return;
+
+    if (deck.vinylMode && isUpperHalf) {
+      isScratchingRef.current[deckId] = true;
+      dragModeRef.current[deckId] = 'scratch';
+      lastXRef.current[deckId] = clientX;
+      lastTimeRef.current[deckId] = performance.now();
+
+      if (!deck.isPlaying) {
+        // Play deck source silently so it produces scratch sounds when dragged
+        playDeckSource(deckId, 0, -100);
+        if (nodes.source) {
+          nodes.source.playbackRate.value = 0;
+        }
+      } else if (nodes.source) {
+        try {
+          nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, ctx.currentTime);
+          nodes.source.playbackRate.linearRampToValueAtTime(0.01, ctx.currentTime + 0.18);
+        } catch (e) {}
+      }
+    } else {
+      dragModeRef.current[deckId] = 'bend';
+      lastXRef.current[deckId] = clientX;
+      lastTimeRef.current[deckId] = performance.now();
+    }
+  };
+
+  const updateScratch = (deckId, clientX, width) => {
+    if (transitionState.active) return;
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const deck = deckId === 'A' ? deckA : deckB;
+    const nodes = nodesRef.current[deckId];
+    if (!nodes.buffer || !nodes.source) return;
+
+    const dragMode = dragModeRef.current[deckId];
+    if (!dragMode) return;
+
+    const dx = clientX - lastXRef.current[deckId];
+    lastXRef.current[deckId] = clientX;
+
+    const now = performance.now();
+    const dt = (now - lastTimeRef.current[deckId]) / 1000;
+    lastTimeRef.current[deckId] = now;
+
+    if (dragMode === 'scratch' && isScratchingRef.current[deckId]) {
+      if (dt > 0) {
+        const velocity = (dx / width) * deck.duration;
+        const dragSpeed = velocity / dt;
+        
+        const sensitivity = 1.2;
+        let rate = dragSpeed * sensitivity;
+        rate = Math.max(-4.0, Math.min(4.0, rate));
+
+        if (Math.abs(rate) < 0.05) {
+          rate = 0;
+        }
+
+        nodes.source.playbackRate.value = rate;
+
+        const timeChange = (dx / width) * deck.duration;
+        let newTime = deck.currentTime + timeChange;
+        
+        // Safety boundary to prevent backward crash
+        newTime = Math.max(0.05, Math.min(deck.duration - 0.05, newTime));
+
+        nodes.pausedAt = newTime;
+        nodes.startTime = ctx.currentTime;
+
+        if (deckId === 'A') {
+          setDeckA(prev => ({ ...prev, currentTime: newTime }));
+        } else {
+          setDeckB(prev => ({ ...prev, currentTime: newTime }));
+        }
+      }
+    } else if (dragMode === 'bend') {
+      const sensitivity = 0.5;
+      const bendFactor = (dx / width) * sensitivity;
+      const normalRate = 1 + (nodes.pitch / 100);
+      let targetRate = normalRate + bendFactor;
+      targetRate = Math.max(0.5, Math.min(1.5, targetRate));
+
+      nodes.source.playbackRate.value = targetRate;
+
+      if (bendTimeoutRef.current[deckId]) {
+        clearTimeout(bendTimeoutRef.current[deckId]);
+      }
+      bendTimeoutRef.current[deckId] = setTimeout(() => {
+        if (nodes.source && dragModeRef.current[deckId] === 'bend') {
+          nodes.source.playbackRate.value = normalRate;
+        }
+      }, 100);
+    }
+  };
+
+  const stopScratch = (deckId, isQuickClick, clickPercent) => {
+    if (transitionState.active) return;
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const deck = deckId === 'A' ? deckA : deckB;
+    const nodes = nodesRef.current[deckId];
+    if (!nodes.buffer) return;
+
+    const dragMode = dragModeRef.current[deckId];
+    
+    if (isQuickClick) {
+      seekTo(deckId, clickPercent);
+    } else {
+      if (dragMode === 'scratch') {
+        isScratchingRef.current[deckId] = false;
+        
+        if (deck.isPlaying) {
+          playDeckSource(deckId);
+          if (nodes.source) {
+            const normalRate = 1 + (nodes.pitch / 100);
+            try {
+              nodes.source.playbackRate.setValueAtTime(0.01, ctx.currentTime);
+              nodes.source.playbackRate.linearRampToValueAtTime(normalRate, ctx.currentTime + 0.18);
+            } catch (e) {}
+          }
+        } else {
+          stopDeckSource(deckId);
+        }
+      } else if (dragMode === 'bend') {
+        if (nodes.source) {
+          const normalRate = 1 + (nodes.pitch / 100);
+          nodes.source.playbackRate.value = normalRate;
+        }
+      }
+    }
+
+    dragModeRef.current[deckId] = null;
+    isScratchingRef.current[deckId] = false;
+    if (bendTimeoutRef.current[deckId]) {
+      clearTimeout(bendTimeoutRef.current[deckId]);
+      bendTimeoutRef.current[deckId] = null;
+    }
+  };
+
   return {
     deckA,
     deckB,
@@ -1282,6 +1459,10 @@ export function useAudioEngine({ library, addLog }) {
     initAudio,
     audioCtxRef,
     fxState,
-    updateFx
+    updateFx,
+    toggleVinylMode,
+    startScratch,
+    updateScratch,
+    stopScratch
   };
 }

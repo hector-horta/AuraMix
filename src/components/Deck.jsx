@@ -13,6 +13,10 @@ export default function Deck({
   onSeek,
   onJumpToOutro,
   onPitchChange,
+  onToggleVinyl,
+  onScratchStart,
+  onScratchMove,
+  onScratchEnd,
   accentColor
 }) {
   const isCyan = accentColor === 'cyan';
@@ -54,9 +58,21 @@ export default function Deck({
     >
       <div className="deck-header">
         <span className="deck-label">Deck {deckId}</span>
-        {deck.track && (
-          <span className="deck-key-display">{deck.track.key}</span>
-        )}
+        <div className="deck-header-right">
+          <div className="vinyl-toggle-container">
+            <span className="vinyl-toggle-label">VINYL</span>
+            <button 
+              onClick={onToggleVinyl}
+              className={`vinyl-toggle-btn ${deck.vinylMode ? 'active' : ''}`}
+              title="Vinyl Mode: ON para scratch y tape-stop, OFF para pitch bending tradicional"
+            >
+              {deck.vinylMode ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          {deck.track && (
+            <span className="deck-key-display">{deck.track.key}</span>
+          )}
+        </div>
       </div>
 
       {deck.track ? (
@@ -74,6 +90,10 @@ export default function Deck({
             outroTime={deck.outroTime}
             playedColor={playedColor}
             unplayedColor={unplayedColor}
+            vinylMode={deck.vinylMode}
+            onScratchStart={onScratchStart}
+            onScratchMove={onScratchMove}
+            onScratchEnd={onScratchEnd}
             onSeek={onSeek}
           />
 
