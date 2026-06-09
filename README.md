@@ -43,6 +43,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Audio-Rhythmic Pulsating Glow:** Decks pulse and glow in sync with the beat of the song using a cubic decay algorithm, providing direct visual feedback for beatmatching.
 *   **Played Track Indicators:** Displays a warning indicator badge `!` next to already played tracks in the library list to prevent repeat track selections.
 *   **Manual Override Support:** Auto-DJ respects user-selected tracks loaded onto the incoming deck instead of automatically overwriting them.
+*   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
 *   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
 *   **DJ Activity Log Console:** Real-time ticker displaying the mathematical and logical steps taken by the mixer and Auto-DJ engines.
 
@@ -120,7 +121,7 @@ To prevent clashing drumbeats (known as "trainwrecking"):
 5.  Schedules a synchronized start: `source.start(AudioContext.currentTime + delay)`.
 
 ### 3-Phase EQ & Volume Transition
-Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the new track's intro duration. The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
+Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the transition duration (calculated dynamically as the minimum between the outgoing track's remaining outro duration and the incoming track's intro duration). This ensures that the transition fits perfectly within the musical boundaries of both tracks. The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
 
 ```mermaid
 graph TD
