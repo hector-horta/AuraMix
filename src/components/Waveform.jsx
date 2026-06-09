@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react'
-import { formatTime } from '../utils/formatTime'
+import { formatTime, formatRemainingTime } from '../utils/formatTime'
 import './Waveform.css'
 
 export default function Waveform({
@@ -124,7 +124,7 @@ export default function Waveform({
           className="waveform-cue-time-badge"
           style={{ left: `${outroPercent}%` }}
         >
-          {formatTime(outroTime)}
+          {formatRemainingTime(duration - outroTime)}
         </span>
       )}
 
