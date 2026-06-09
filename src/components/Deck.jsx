@@ -97,6 +97,9 @@ export default function Deck({
               onScratchMove={onScratchMove}
               onScratchEnd={onScratchEnd}
               onSeek={onSeek}
+              activeLoopBars={deck.activeLoopBars}
+              loopStart={deck.loopStart}
+              loopEnd={deck.loopEnd}
             />
 
             <div className="time-display">

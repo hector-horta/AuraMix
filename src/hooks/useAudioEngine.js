@@ -35,7 +35,9 @@ export function useAudioEngine({ library, addLog }) {
     introTime: 0,
     vinylMode: true,
     isUserSelected: false,
-    activeLoopBars: null
+    activeLoopBars: null,
+    loopStart: 0,
+    loopEnd: 0
   });
 
   const [deckB, setDeckB] = useState({
@@ -50,7 +52,9 @@ export function useAudioEngine({ library, addLog }) {
     introTime: 0,
     vinylMode: true,
     isUserSelected: false,
-    activeLoopBars: null
+    activeLoopBars: null,
+    loopStart: 0,
+    loopEnd: 0
   });
 
 
@@ -251,10 +255,10 @@ export function useAudioEngine({ library, addLog }) {
     }
 
     if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null }));
+      setDeckA(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
       nodesRef.current.A.pausedAt = 0;
     } else {
-      setDeckB(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null }));
+      setDeckB(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
       nodesRef.current.B.pausedAt = 0;
     }
   };
@@ -574,7 +578,9 @@ export function useAudioEngine({ library, addLog }) {
       introTime: track.intro,
       vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode,
       isUserSelected: !isAutoload,
-      activeLoopBars: null
+      activeLoopBars: null,
+      loopStart: 0,
+      loopEnd: 0
     };
 
     if (deckId === 'A') {
@@ -699,7 +705,7 @@ export function useAudioEngine({ library, addLog }) {
         nodes.source.loop = false;
       }
       const setDeck = deckId === 'A' ? setDeckA : setDeckB;
-      setDeck(prev => ({ ...prev, activeLoopBars: null }));
+      setDeck(prev => ({ ...prev, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
     }
 
     const targetTime = percent * deck.duration;
@@ -1022,7 +1028,7 @@ export function useAudioEngine({ library, addLog }) {
       if (nodes.source) {
         nodes.source.loop = false;
       }
-      setDeck(prev => ({ ...prev, activeLoopBars: null }));
+      setDeck(prev => ({ ...prev, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
       addLog(`Deck ${deckId}: Loop desactivado.`);
     } else if (nodes.loopActive) {
       // Case 2: Resize loop (maintain loopStart, calculate new loopEnd)
@@ -1048,7 +1054,7 @@ export function useAudioEngine({ library, addLog }) {
         }
       }
 
-      setDeck(prev => ({ ...prev, activeLoopBars: bars }));
+      setDeck(prev => ({ ...prev, activeLoopBars: bars, loopEnd: newLoopEnd }));
       addLog(`Deck ${deckId}: Loop redimensionado a ${bars} barras (${formatTime(nodes.loopStart)} - ${formatTime(newLoopEnd)}).`);
     } else {
       // Case 3: Activate new loop
@@ -1067,7 +1073,7 @@ export function useAudioEngine({ library, addLog }) {
         nodes.source.loopStart = loopStart;
         nodes.source.loopEnd = loopEnd;
       }
-      setDeck(prev => ({ ...prev, activeLoopBars: bars }));
+      setDeck(prev => ({ ...prev, activeLoopBars: bars, loopStart: loopStart, loopEnd: loopEnd }));
       addLog(`Deck ${deckId}: Loop activado de ${bars} barras (${formatTime(loopStart)} - ${formatTime(loopEnd)}).`);
     }
   };

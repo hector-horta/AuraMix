@@ -35,6 +35,12 @@
   background-color: #fff;
   box-shadow: 0 0 8px #fff;
   pointer-events: none;
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.waveform-progress-bar.looping {
+  background-color: var(--neon-orange);
+  box-shadow: 0 0 8px var(--neon-orange);
 }
 
 .intro-marker {

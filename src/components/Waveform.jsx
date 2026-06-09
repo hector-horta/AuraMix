@@ -14,7 +14,10 @@ export default function Waveform({
   onScratchStart,
   onScratchMove,
   onScratchEnd,
-  onSeek
+  onSeek,
+  activeLoopBars,
+  loopStart,
+  loopEnd
 }) {
   const canvasRef = useRef(null);
 
@@ -43,6 +46,28 @@ export default function Waveform({
       ctx.fillRect(x, y, barWidth - 1, barHeight);
     });
 
+    // Draw loop region highlight overlay on top of waveform
+    if (activeLoopBars && duration > 0) {
+      const startX = (loopStart / duration) * width;
+      const endX = (loopEnd / duration) * width;
+      
+      // Draw transparent neon orange overlay region
+      ctx.fillStyle = 'rgba(255, 159, 28, 0.12)';
+      ctx.fillRect(startX, 0, endX - startX, height);
+
+      // Draw dotted borders at loop boundaries
+      ctx.strokeStyle = 'var(--neon-orange)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(startX, 0);
+      ctx.lineTo(startX, height);
+      ctx.moveTo(endX, 0);
+      ctx.lineTo(endX, height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     // Draw scratch/nudge zone dividers and overlays when vinyl mode is active
     if (vinylMode) {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -58,7 +83,7 @@ export default function Waveform({
       ctx.fillText('SCRATCH ZONE', 8, 11);
       ctx.fillText('NUDGE ZONE', 8, height - 6);
     }
-  }, [peaks, currentTime, duration, playedColor, unplayedColor, vinylMode]);
+  }, [peaks, currentTime, duration, playedColor, unplayedColor, vinylMode, activeLoopBars, loopStart, loopEnd]);
 
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -140,7 +165,10 @@ export default function Waveform({
         )}
         
         {/* Play progress bar */}
-        <div className="waveform-progress-bar" style={{ left: `${progressPercent}%` }} />
+        <div 
+          className={`waveform-progress-bar ${activeLoopBars ? 'looping' : ''}`} 
+          style={{ left: `${progressPercent}%` }} 
+        />
 
         {/* Intro Cue marker */}
         {duration > 0 && introTime > 0 && (
