@@ -12,7 +12,10 @@ export default function MixerPanel({
   onVolumeChange,
   onResync,
   fxState,
-  onUpdateFx
+  onUpdateFx,
+  djMode,
+  autoDjStyle,
+  onChangeAutoDjStyle
 }) {
   const [activeTab, setActiveTab] = useState('mixer'); // 'mixer' or 'fx'
 
@@ -87,6 +90,29 @@ export default function MixerPanel({
               <RefreshCw className="sync-icon" size={16} />
               <span>SYNC</span>
             </button>
+
+            {/* Auto-DJ Mix Style Switch */}
+            <div className={`autodj-style-switch-container ${djMode === 'autodj' ? 'active' : 'disabled'}`}>
+              <span className="style-switch-label">Mezcla</span>
+              <div className="style-switch-control">
+                <button 
+                  disabled={djMode !== 'autodj'}
+                  onClick={() => onChangeAutoDjStyle('eq')}
+                  className={`style-btn ${autoDjStyle === 'eq' ? 'active' : ''}`}
+                  title="EQ Ramp: Intercambio progresivo de frecuencias en 3 fases"
+                >
+                  EQ
+                </button>
+                <button 
+                  disabled={djMode !== 'autodj'}
+                  onClick={() => onChangeAutoDjStyle('bass')}
+                  className={`style-btn ${autoDjStyle === 'bass' ? 'active' : ''}`}
+                  title="Bass Swap: Potencia constante y cambio de bajos en el compás"
+                >
+                  Swap
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Deck B EQs */}

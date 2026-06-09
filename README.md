@@ -16,10 +16,12 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
   - [3. Intro / Drop Detection](#3-intro--drop-detection)
   - [4. Outro Detection](#4-outro-detection)
   - [5. Harmonic Compatibility (Camelot Wheel)](#5-harmonic-compatibility-camelot-wheel)
+  - [6. Tempo/BPM Compatibility](#6-tempobpm-compatibility)
+  - [7. Music Style / Genre Detection](#7-music-style--genre-detection)
 - [Auto-DJ Transition Engine](#-auto-dj-transition-engine)
   - [Tempo Matching (Pitch Matching)](#tempo-matching-pitch-matching)
   - [Rhythmic Alignment (Beat Grid Alignment)](#rhythmic-alignment-beat-grid-alignment)
-  - [3-Phase EQ & Volume Transition](#3-phase-eq--volume-transition)
+  - [Transition Mixing Options (EQ Ramp vs. Bassline Swap)](#transition-mixing-options-eq-ramp-vs-bassline-swap)
 - [Project Architecture & Directory Structure](#-project-architecture--directory-structure)
 - [Prerequisites & Installation](#-prerequisites--installation)
 - [Usage Guide](#-usage-guide)
@@ -32,10 +34,16 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Dual Players (Decks A & B):** Independent playback controllers with real-time waveform visualization rendered on HTML5 `<canvas>`.
 *   **Local Audio Analysis:** Client-side decoding and analysis of user-uploaded files (100% private, zero server uploads).
 *   **Camelot Harmonic Analysis:** Analyzes musical key compatibility and renders a visual Camelot Wheel on the sidebar.
+*   **Music Style & Genre Detection:** Client-side Digital Signal Processing (DSP) analyses spectral centroid, bass energy ratio, and onset density to automatically classify songs into 12 music style profiles (e.g. Deep House, Tech House, Trance, Drum & Bass).
+*   **Neon Genre Profile Indicator:** A premium cyberpunk dashboard integrated into the Camelot Panel. It displays the 12 genre profiles and flickers/glows in the song's signature color to indicate the currently active track's genre.
+*   **Jukebox Mode Genre Badges:** In Jukebox mode, active decks render a glowing neon badge of the track's detected music style. Library files also display the detected style badge directly below the artist's name for easy navigation.
 *   **3-Way DJ Mode Selector:** Dynamic mode switcher with neon glow indicators in the MIX MASTER panel:
     *   **Manual (Auto-DJ Off):** The user has full manual control over volume faders, EQs, and playback. Automated transitions will not trigger at the Outro.
-    *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts a 3-phase EQ-swapping transition (Lows, Mids, Highs) based on the user-selected EQ precedence sequence. To keep the mixing flow active, a 10-second timer prep-loads the next compatible track into the stopped deck after each mix.
+    *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts the selected transition algorithm (EQ Ramp or Bassline Swap). To keep the mixing flow active, a 10-second timer prep-loads the next compatible track into the stopped deck after each mix.
     *   **Jukebox (Radio Station):** Radio-like crossfade transition. The tempo of the outgoing track ramps dynamically to match the incoming track's native tempo, EQs remain flat at 0dB, and the Master BPM updates to the incoming track's native BPM on transition completion.
+*   **Dual Auto-DJ Transition Algorithms:** A cyberpunk hardware switch situated right below the SYNC button allows the DJ to choose how Auto-DJ transitions are mixed:
+    *   **EQ (EQ Ramp Mix):** A 3-phase automated frequency crossover (Lows, Mids, Highs) based on the draggable EQ precedence order, maintaining constant volume.
+    *   **Swap (Bassline Swap):** High/mid bands and channel volume blend smoothly using equal-power curves, while the bass (Low EQ) is instantly cut/swapped at the transition midpoint to maintain energy.
 *   **Complete Manual Mixer:**
     *   Three-band rotary EQs per channel (Lows, Mids, Highs).
     *   High-resolution pitch/speed faders with a range of ±10% (matching Pioneer CDJ industry standard).
@@ -53,11 +61,10 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
     *   **Played Checkmark (`✓`):** Indicates a track has been played and won't be repeated by the Auto-DJ yet.
     *   **Fallback Warning (`!`):** Displayed on played tracks when the Auto-DJ has exhausted $\ge 75\%$ of the library, warning that these songs are now eligible to be repeated.
     *   **Incompatibility Cross (`✗`):** Displays on tracks that are completely incompatible with the active deck (BPM diff > 5% or incompatible key). Dimmed styling is applied, and Auto-DJ will never select them.
-*   **Manual Override Support:** Auto-DJ respects user-selected tracks loaded onto the incoming deck instead of automatically overwriting them.
+*   **Manual Override / User Priority Rule:** Auto-DJ respects user-selected tracks manually loaded onto an idle deck. It will never overwrite the human DJ's choice of song with an autoloaded track, ensuring manual overrides are preserved.
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
-*   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
-*   **DJ Activity Log Console:** Real-time ticker displaying the mathematical and logical steps taken by the mixer and Auto-DJ engines.
+*   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic UI styled with neon accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations. Features an elongated vertical Activity Log Console (height: 260px) that aesthetically balances the third column.
 
 ---
 
@@ -113,6 +120,25 @@ To ensure natural sound quality and prevent extreme pitch bending when mixing, t
 *   This ensures that the pitch fader adjustment (limited to the ±10% Pioneer standard) can lock the BPMs without causing unwanted vocal or instrumental distortion.
 *   Incompatible tracks are visually dimmed in the library list, indicating they are not recommended for automated or manual transitions.
 
+### 7. Music Style / Genre Detection
+To classify the musical style of each track, AuraMix performs client-side digital signal processing (DSP) to match tracks against 12 different music style profiles (defined in [`genreProfiles.js`](file:///d:/dev/AuraMix/src/constants/genreProfiles.js)):
+
+1.  **Feature Extraction:** Inside [`extractSpectralFeatures`](file:///d:/dev/AuraMix/src/utils/audioAnalyzer.js#L549-L665), key acoustic descriptors are extracted from the track:
+    *   **Spectral Centroid:** The spectral "center of gravity" of the audio signal, indicating the relative brightness of the track. It is computed using a Cooley-Tukey Radix-2 Fast Fourier Transform (FFT) over 8 Hann-windowed, 4096-sample windows taken from the middle (30% to 70%) of the song:
+        $$\text{Spectral Centroid} = \frac{\sum_{k} f_k \cdot M_k}{\sum_{k} M_k}$$
+        where $f_k$ is the frequency of bin $k$, and $M_k$ is the magnitude of the FFT bin.
+    *   **Bass Energy Ratio:** The ratio of sub-bass/bass frequency energy (below 250 Hz) compared to the overall spectral energy. High ratio indicates strong bass presence.
+    *   **Onset Density:** Rhythmic intensity calculated as onset attacks per second over a 30-second window (seconds 15 to 45). The envelope is generated using RMS in 20ms frames, followed by a first-order difference and Half-Wave Rectification (HWR) to detect volume increases. Onsets are detected using a dynamic threshold (15% of peak + absolute noise floor) and a minimum spacing of 100ms.
+2.  **Gaussian Similarity Scoring:** In [`classifyGenre`](file:///d:/dev/AuraMix/src/utils/audioAnalyzer.js#L670-L705), features are scored against profiles using a multivariate Gaussian model:
+    $$\text{Similarity}_i = \exp\left(-0.5 \left(\frac{x_i - \mu_i}{\sigma_i}\right)^2\right)$$
+    The classifier aggregates these values with the following weights to determine the best match:
+    *   **BPM Match:** 40% weight
+    *   **Spectral Centroid Match:** 25% weight
+    *   **Bass Energy Ratio Match:** 20% weight
+    *   **Onset Density Match:** 15% weight
+    
+    The highest-scoring profile dictates the classified genre, and the confidence level is returned as the highest similarity score multiplied by 100 (clamped between 10% and 100%).
+
 ---
 
 ## 🎛️ DJ Mode Transition Engine
@@ -138,8 +164,11 @@ To prevent clashing drumbeats (known as "trainwrecking"):
 ### Transition Mixing
 The mixing phase varies based on the active DJ Mode:
 
-#### 1. Auto-DJ: 3-Phase EQ & Volume Transition
-Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the transition duration (calculated dynamically as the minimum between the outgoing track's remaining outro duration and the incoming track's intro duration). The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
+#### 1. Auto-DJ: Transition Algorithms
+When in Auto-DJ mode, the transition follows one of two user-selectable algorithms selected on the Mixer Panel switch (under the SYNC button):
+
+##### A. EQ Ramp Mix (`EQ`)
+This executes a gradual 3-stage automated EQ transition over the transition duration. The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
 
 ```mermaid
 graph TD
@@ -149,11 +178,34 @@ graph TD
     D --> E[Transition Done: Reset Outgoing Deck]
 ```
 
-*   **Initialization:** The incoming deck starts playing at full volume (`volume = 1.0`), but its EQ nodes are initialized fully attenuated (`low = -40dB`, `mid = -40dB`, `high = -40dB`) to avoid muddying the master signal.
-*   **Dynamic Phase Ordering:** The mixing sequence is calculated using the custom user-selected `eqOrder` configuration:
+*   **Initialization:** The incoming deck starts playing at full volume (`volume = 1.0`), but its EQ nodes are initialized fully attenuated (`lowShelf = -40dB`, `midPeaking = -40dB`, `highShelf = -40dB`) to avoid muddying the master signal.
+*   **Dynamic Phase Ordering:** The mixing sequence is calculated using the custom user-selected `eqOrder` configuration. Each phase swaps a specific band via [`scheduleEqTransition`](file:///d:/dev/AuraMix/src/audio/transitionEngine.js#L88-L129):
     *   **Mids Swap (`MIDS`):** Leads, vocals, and melodies crossover. The incoming deck's mids rise from -40dB to 0dB, while the outgoing deck's mids drop to -40dB.
     *   **Lows Swap (`LOWS`):** Kick drum and bassline crossover. The incoming deck's bass rises from -40dB to 0dB, while the outgoing deck's bass drops to -40dB.
     *   **Highs Swap (`HIGHS`):** Hi-hats, percussions, and groove crossover. The incoming deck's treble rises from -40dB to 0dB, while the outgoing deck's treble drops to -40dB.
+*   **Constant Volume:** Channel volume levels are held constant during the EQ ramp phase (managed by [`scheduleAutoDjVolume`](file:///d:/dev/AuraMix/src/audio/transitionEngine.js#L157-L169)) to prevent momentum loss.
+
+##### B. Bassline Swap (`Swap`)
+This algorithm is designed to preserve energy in dance music by avoiding clashing kick drums/basslines. It blends the mid and high frequencies using equal-power volume curves, while performing an instantaneous swap of the low bass frequencies at the midpoint of the transition:
+
+```mermaid
+graph TD
+    A[Outro Reached] --> B["Equal-Power Crossfade (Mids & Highs & Volume)"]
+    B --> C["Midpoint (t_mid) reached"]
+    C --> D["Instant Bassline Swap (Low EQ cut/boost over 50ms)"]
+    D --> E["Crossfade Completes"]
+    E --> F[Transition Done: Reset Outgoing Deck]
+```
+
+*   **Equal-Power Curve Scheduling:** Channel volumes are scheduled using a trigonometric equal-power curve to ensure acoustic power remains constant at all points:
+    *   Outgoing Deck Gain: $g_{\text{from}}(t) = V_{\text{from}} \cos\left(\frac{t - t_0}{t_3 - t_0} \cdot \frac{\pi}{2}\right)$
+    *   Incoming Deck Gain: $g_{\text{to}}(t) = \sin\left(\frac{t - t_0}{t_3 - t_0} \cdot \frac{\pi}{2}\right)$
+    This is scheduled via Web Audio's `setValueCurveAtTime` using Float32Arrays in [`scheduleEqualPowerCrossfade`](file:///d:/dev/AuraMix/src/audio/transitionEngine.js#L171-L190).
+*   **Midpoint Bass Crossover:** Highs and mids are blended continuously using the curves. Lows are kept separate:
+    *   The incoming deck's bass (`lowShelf` EQ) is fully cut at `-40dB` at the start of the transition.
+    *   The outgoing deck's bass (`lowShelf` EQ) remains fully open at its current value.
+    *   At the transition midpoint $t_{\text{mid}} = t_0 + \frac{t_3 - t_0}{2}$, the engine executes a rapid 50ms swap: the outgoing bass is cut to `-40dB` and the incoming bass is boosted to `0dB` (flat) via [`scheduleBasslineSwap`](file:///d:/dev/AuraMix/src/audio/transitionEngine.js#L192-L230).
+
 *   **Completion:** The outgoing deck is stopped, its EQs and volumes are reset to defaults, and the crossfader is centered on the new active deck.
 
 #### 2. Jukebox: Volume Crossfade & Tempo Ramp
@@ -218,10 +270,11 @@ AuraMix/
 │
 ├── src/
 │   ├── constants/
-│   │   └── demoTracks.js   # Extracted array of DEMO_TRACKS
+│   │   ├── demoTracks.js   # Extracted array of DEMO_TRACKS
+│   │   └── genreProfiles.js # Definitions for 12 musical styles & colors
 │   │
 │   ├── utils/
-│   │   ├── audioAnalyzer.js # DSP utility algorithms (BPM, FFT, Camelot, RMS)
+│   │   ├── audioAnalyzer.js # DSP utility algorithms (BPM, FFT, Camelot, RMS, Genre)
 │   │   └── formatTime.js    # Time formatting helper
 │   │
 │   ├── hooks/
@@ -268,12 +321,18 @@ AuraMix/
     npm install
     ```
 
-3.  **Start the local development server:**
+3.  **Run the test suite:**
+    To run all unit tests for the transition engine, audio analyzer, and genre classification:
+    ```bash
+    npm run test
+    ```
+
+4.  **Start the local development server:**
     ```bash
     npm run dev
     ```
 
-4.  **Open in your browser:**
+5.  **Open in your browser:**
     Navigate to the URL displayed in the terminal console (typically `http://localhost:5173`).
 
 ---

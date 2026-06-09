@@ -45,6 +45,8 @@ export default function App() {
     djMode,
     setDjMode,
     autoDj,
+    autoDjStyle,
+    setAutoDjStyle,
     eqOrder,
     setEqOrder,
     resyncDecks,
@@ -303,6 +305,9 @@ export default function App() {
             onResync={resyncDecks}
             fxState={fxState}
             onUpdateFx={updateFx}
+            djMode={djMode}
+            autoDjStyle={autoDjStyle}
+            onChangeAutoDjStyle={setAutoDjStyle}
           />
         </main>
 

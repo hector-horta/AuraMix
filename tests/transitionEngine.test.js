@@ -7,7 +7,9 @@ import {
   scheduleAutoDjVolume,
   resetDeckEq,
   BAND_NODES,
-  PHASE_DETAILS
+  PHASE_DETAILS,
+  scheduleEqualPowerCrossfade,
+  scheduleBasslineSwap
 } from '../src/audio/transitionEngine';
 
 describe('calculateTransitionTiming', () => {
@@ -269,5 +271,76 @@ describe('PHASE_DETAILS constant', () => {
     expect(PHASE_DETAILS.mid.msg).toContain('medias');
     expect(PHASE_DETAILS.low.msg).toContain('bajas');
     expect(PHASE_DETAILS.high.msg).toContain('altas');
+  });
+});
+
+describe('scheduleEqualPowerCrossfade', () => {
+  it('should schedule equal-power volume curves on both decks', () => {
+    const nodesFrom = {
+      gainNode: { gain: { cancelScheduledValues: vi.fn(), setValueCurveAtTime: vi.fn() } },
+    };
+    const nodesTo = {
+      gainNode: { gain: { cancelScheduledValues: vi.fn(), setValueCurveAtTime: vi.fn() } },
+    };
+
+    scheduleEqualPowerCrossfade(nodesFrom, nodesTo, 10, 40, 0.8);
+
+    expect(nodesFrom.gainNode.gain.cancelScheduledValues).toHaveBeenCalledWith(10);
+    expect(nodesFrom.gainNode.gain.setValueCurveAtTime).toHaveBeenCalledWith(
+      expect.any(Float32Array), 10, 30
+    );
+
+    expect(nodesTo.gainNode.gain.cancelScheduledValues).toHaveBeenCalledWith(10);
+    expect(nodesTo.gainNode.gain.setValueCurveAtTime).toHaveBeenCalledWith(
+      expect.any(Float32Array), 10, 30
+    );
+  });
+});
+
+describe('scheduleBasslineSwap', () => {
+  it('should swap the low EQ at the midpoint and keep other EQs flat/initial', () => {
+    const createGainParam = () => ({
+      gain: {
+        value: 0,
+        cancelScheduledValues: vi.fn(),
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+      }
+    });
+
+    const nodesFrom = {
+      lowShelf: createGainParam(),
+      midPeaking: createGainParam(),
+      highShelf: createGainParam(),
+    };
+    const nodesTo = {
+      lowShelf: createGainParam(),
+      midPeaking: createGainParam(),
+      highShelf: createGainParam(),
+    };
+
+    const fromEq = { low: -2, mid: 3, high: 1 };
+    // t0 = 10, t3 = 40, t_mid = 25
+    scheduleBasslineSwap(nodesFrom, nodesTo, 10, 40, fromEq);
+
+    // Cancel calls
+    expect(nodesFrom.lowShelf.gain.cancelScheduledValues).toHaveBeenCalledWith(10);
+    expect(nodesTo.lowShelf.gain.cancelScheduledValues).toHaveBeenCalledWith(10);
+
+    // Low EQ (Bass Swap) at t_mid = 25
+    expect(nodesFrom.lowShelf.gain.setValueAtTime).toHaveBeenCalledWith(-2, 10);
+    expect(nodesFrom.lowShelf.gain.setValueAtTime).toHaveBeenCalledWith(-2, 25);
+    expect(nodesFrom.lowShelf.gain.linearRampToValueAtTime).toHaveBeenCalledWith(-40, 25.05);
+
+    expect(nodesTo.lowShelf.gain.setValueAtTime).toHaveBeenCalledWith(-40, 10);
+    expect(nodesTo.lowShelf.gain.setValueAtTime).toHaveBeenCalledWith(-40, 25);
+    expect(nodesTo.lowShelf.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0, 25.05);
+
+    // Mids / Highs
+    expect(nodesFrom.midPeaking.gain.setValueAtTime).toHaveBeenCalledWith(3, 10);
+    expect(nodesFrom.highShelf.gain.setValueAtTime).toHaveBeenCalledWith(1, 10);
+
+    expect(nodesTo.midPeaking.gain.setValueAtTime).toHaveBeenCalledWith(0, 10);
+    expect(nodesTo.highShelf.gain.setValueAtTime).toHaveBeenCalledWith(0, 10);
   });
 });

@@ -10,7 +10,9 @@ import {
   scheduleJukeboxTransition,
   scheduleAutoDjVolume,
   resetDeckEq,
-  PHASE_DETAILS
+  PHASE_DETAILS,
+  scheduleEqualPowerCrossfade,
+  scheduleBasslineSwap
 } from '../audio/transitionEngine'
 import { updateFx as applyFx } from '../audio/fxEngine'
 import {
@@ -52,6 +54,7 @@ export function useAudioEngine({ library, addLog }) {
 
   const [djMode, setDjMode] = useState('autodj'); // 'manual', 'autodj', 'jukebox'
   const autoDj = djMode !== 'manual';
+  const [autoDjStyle, setAutoDjStyle] = useState('eq'); // 'eq' (EQ Ramp Mix) or 'bass' (Bassline Swap)
   const [eqOrder, setEqOrder] = useState(['mid', 'low', 'high']);
   const [playedTrackIds, setPlayedTrackIds] = useState([]);
   const [activeDeckId, setActiveDeckId] = useState('A'); // 'A' or 'B'
@@ -344,6 +347,10 @@ export function useAudioEngine({ library, addLog }) {
 
     if (djMode === 'jukebox') {
       scheduleJukeboxTransition(nodesFrom, nodesTo, t0, t3, fromDeckVolume, targetTrack?.bpm, fromBpm, playbackRateFrom);
+    } else if (autoDjStyle === 'bass') {
+      scheduleEqualPowerCrossfade(nodesFrom, nodesTo, t0, t3, fromDeckVolume);
+      const fromEq = fromDeckId === 'A' ? deckA.eq : deckB.eq;
+      scheduleBasslineSwap(nodesFrom, nodesTo, t0, t3, fromEq);
     } else {
       scheduleAutoDjVolume(nodesFrom, nodesTo, t0, t3, fromDeckVolume);
       const fromEq = fromDeckId === 'A' ? deckA.eq : deckB.eq;
@@ -411,6 +418,22 @@ export function useAudioEngine({ library, addLog }) {
       }, (delay + transitionDuration * 0.9) * 1000);
 
       scheduleTransitionCompletion(delay + transitionDuration, true);
+    } else if (autoDjStyle === 'bass') {
+      setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, phase: 'crossfade', progress: 15 }));
+        addLog(`Transición Bassline Swap: Mezclando melodías con curva de potencia constante...`);
+      }, delay * 1000);
+
+      setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, phase: 'lows', progress: 50 }));
+        addLog(`¡BASSLINE SWAP! Intercambiando frecuencias bajas en el compás.`);
+      }, (delay + transitionDuration / 2) * 1000);
+
+      setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, progress: 85 }));
+      }, (delay + transitionDuration * 0.85) * 1000);
+
+      scheduleTransitionCompletion(delay + transitionDuration, false);
     } else {
       setTimeout(() => {
         const b = eqOrder[0];
@@ -919,6 +942,8 @@ export function useAudioEngine({ library, addLog }) {
     djMode,
     setDjMode,
     autoDj,
+    autoDjStyle,
+    setAutoDjStyle,
     eqOrder,
     setEqOrder,
     resyncDecks,

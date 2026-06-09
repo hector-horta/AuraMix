@@ -169,6 +169,66 @@ export function scheduleAutoDjVolume(nodesFrom, nodesTo, t0, t3, fromVolume) {
 }
 
 /**
+ * Schedule equal-power crossfade for Bassline Swap mode.
+ */
+export function scheduleEqualPowerCrossfade(nodesFrom, nodesTo, t0, t3, fromVolume) {
+  const curveLength = 64;
+  const curveFrom = new Float32Array(curveLength);
+  const curveTo = new Float32Array(curveLength);
+
+  for (let i = 0; i < curveLength; i++) {
+    const fraction = i / (curveLength - 1);
+    curveFrom[i] = fromVolume * Math.cos(fraction * Math.PI / 2);
+    curveTo[i] = Math.sin(fraction * Math.PI / 2);
+  }
+
+  nodesFrom.gainNode.gain.cancelScheduledValues(t0);
+  nodesFrom.gainNode.gain.setValueCurveAtTime(curveFrom, t0, t3 - t0);
+
+  nodesTo.gainNode.gain.cancelScheduledValues(t0);
+  nodesTo.gainNode.gain.setValueCurveAtTime(curveTo, t0, t3 - t0);
+}
+
+/**
+ * Schedule EQ band settings for Bassline Swap mode.
+ * @param {Object} nodesFrom
+ * @param {Object} nodesTo
+ * @param {number} t0
+ * @param {number} t3
+ * @param {Object} fromEq
+ */
+export function scheduleBasslineSwap(nodesFrom, nodesTo, t0, t3, fromEq) {
+  const t_mid = t0 + (t3 - t0) / 2;
+
+  // Cancel any scheduled EQ changes from t0
+  nodesFrom.lowShelf.gain.cancelScheduledValues(t0);
+  nodesFrom.midPeaking.gain.cancelScheduledValues(t0);
+  nodesFrom.highShelf.gain.cancelScheduledValues(t0);
+
+  nodesTo.lowShelf.gain.cancelScheduledValues(t0);
+  nodesTo.midPeaking.gain.cancelScheduledValues(t0);
+  nodesTo.highShelf.gain.cancelScheduledValues(t0);
+
+  // Outgoing Low EQ stays at initial value until t_mid, then cuts to -40dB
+  nodesFrom.lowShelf.gain.setValueAtTime(fromEq.low, t0);
+  nodesFrom.lowShelf.gain.setValueAtTime(fromEq.low, t_mid);
+  nodesFrom.lowShelf.gain.linearRampToValueAtTime(-40, t_mid + 0.05);
+
+  // Incoming Low EQ is cut until t_mid, then opens to 0dB
+  nodesTo.lowShelf.gain.setValueAtTime(-40, t0);
+  nodesTo.lowShelf.gain.setValueAtTime(-40, t_mid);
+  nodesTo.lowShelf.gain.linearRampToValueAtTime(0, t_mid + 0.05);
+
+  // Outgoing Mids/Highs stay at their initial values throughout the mix
+  nodesFrom.midPeaking.gain.setValueAtTime(fromEq.mid, t0);
+  nodesFrom.highShelf.gain.setValueAtTime(fromEq.high, t0);
+
+  // Incoming Mids/Highs stay at 0dB throughout
+  nodesTo.midPeaking.gain.setValueAtTime(0, t0);
+  nodesTo.highShelf.gain.setValueAtTime(0, t0);
+}
+
+/**
  * Reset the outgoing deck's EQ and gain to default flat values.
  * @param {Object} nodesFrom - Audio nodes of the outgoing deck.
  */

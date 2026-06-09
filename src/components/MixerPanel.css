@@ -258,3 +258,72 @@
   cursor: not-allowed;
   border-color: rgba(255, 255, 255, 0.04);
 }
+
+/* Auto-DJ Mix Style Switch under SYNC button */
+.autodj-style-switch-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 0.8rem;
+  transition: opacity 0.3s ease;
+  width: 90px;
+}
+
+.autodj-style-switch-container.disabled {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.autodj-style-switch-container.active {
+  opacity: 1;
+}
+
+.style-switch-label {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.3rem;
+  text-align: center;
+}
+
+.style-switch-control {
+  display: flex;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+  width: 100%;
+}
+
+.style-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  padding: 0.2rem 0.1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+  text-transform: uppercase;
+}
+
+.style-btn:hover:not(:disabled) {
+  color: var(--text-muted);
+}
+
+.style-btn.active {
+  background: rgba(157, 78, 221, 0.15);
+  color: var(--neon-purple);
+  border: 1px solid rgba(157, 78, 221, 0.3);
+  text-shadow: 0 0 4px rgba(157, 78, 221, 0.4);
+}
+
+.style-btn:disabled {
+  cursor: not-allowed;
+}
