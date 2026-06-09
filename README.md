@@ -34,7 +34,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Camelot Harmonic Analysis:** Analyzes musical key compatibility and renders a visual Camelot Wheel on the sidebar.
 *   **3-Way DJ Mode Selector:** Dynamic mode switcher with neon glow indicators in the MIX MASTER panel:
     *   **Manual (Auto-DJ Off):** The user has full manual control over volume faders, EQs, and playback. Automated transitions will not trigger at the Outro.
-    *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts a 3-phase EQ-swapping transition (Lows, Mids, Highs) based on the user-selected EQ precedence sequence.
+    *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts a 3-phase EQ-swapping transition (Lows, Mids, Highs) based on the user-selected EQ precedence sequence. To keep the mixing flow active, a 10-second timer prep-loads the next compatible track into the stopped deck after each mix.
     *   **Jukebox (Radio Station):** Radio-like crossfade transition. The tempo of the outgoing track ramps dynamically to match the incoming track's native tempo, EQs remain flat at 0dB, and the Master BPM updates to the incoming track's native BPM on transition completion.
 *   **Complete Manual Mixer:**
     *   Three-band rotary EQs per channel (Lows, Mids, Highs).
@@ -54,6 +54,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
     *   **Fallback Warning (`!`):** Displayed on played tracks when the Auto-DJ has exhausted $\ge 75\%$ of the library, warning that these songs are now eligible to be repeated.
     *   **Incompatibility Cross (`✗`):** Displays on tracks that are completely incompatible with the active deck (BPM diff > 5% or incompatible key). Dimmed styling is applied, and Auto-DJ will never select them.
 *   **Manual Override Support:** Auto-DJ respects user-selected tracks loaded onto the incoming deck instead of automatically overwriting them.
+*   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
 *   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
 *   **DJ Activity Log Console:** Real-time ticker displaying the mathematical and logical steps taken by the mixer and Auto-DJ engines.
@@ -168,6 +169,12 @@ graph TD
 *   **Volume Crossfade:** The outgoing deck volume is linearly ramped from its active volume level to `0.0` using Web Audio `gainNode.gain.linearRampToValueAtTime(0.0, t3)`. Simultaneously, the incoming deck volume is linearly ramped from `0.0` to `1.0`.
 *   **Tempo Ramp:** The playback rate of the outgoing deck is linearly ramped to match the incoming track's native tempo.
 *   **Completion:** The outgoing deck is stopped and reset. The global Master BPM is updated to match the incoming track's native BPM.
+
+### Automatic Pre-loading (Prep Autoload)
+To keep the mixing flow seamless and pre-rendered:
+1. When a transition completes and the outgoing deck stops playing, a **10-second prep autoload timer** is scheduled for that deck.
+2. If the user manually loads a track onto the stopped deck during this countdown, the timer is aborted. If the user switches the DJ Mode to **Manual**, both loaders are cleared.
+3. If the timer expires, the engine calls `findCompatibleTrack` relative to the track playing on the active deck. If a compatible song is found in the library, it is automatically loaded and its waveform peaks are analyzed and rendered onto the stopped deck, keeping it prepared for the next Outro.
 
 ---
 
