@@ -26,10 +26,11 @@ export default function TrackInfo({
   const isLoadedOnB = deckB.track?.id === track.id;
   const isCurrentTrack = activeTrack?.id === track.id;
   const isIncompatible = activeTrack && !isCurrentTrack && !(isCompatBpm && isCompatKey);
+  const isCompatible = activeTrack && !isCurrentTrack && isCompatBpm && isCompatKey;
 
   return (
     <div 
-      className={`track-item ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''}`}
+      className={`track-item ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''} ${isCompatible ? 'track-compatible' : ''}`}
     >
       <div className="track-item-main">
         <div className="track-item-title-group">

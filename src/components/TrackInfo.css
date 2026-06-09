@@ -203,3 +203,21 @@
   box-shadow: 0 0 5px rgba(255, 159, 28, 0.15);
   vertical-align: middle;
 }
+
+/* Compatible tracks styling (with neon flicker animation) */
+.track-item.track-compatible {
+  --alert-color: var(--neon-green);
+  --alert-bg: rgba(57, 255, 20, 0.05);
+  --alert-border: rgba(57, 255, 20, 0.2);
+  --alert-glow: rgba(57, 255, 20, 0.6);
+  
+  border-color: var(--alert-border);
+  background: var(--alert-bg);
+  animation: neon-flicker-on 1.2s ease-in-out forwards !important;
+}
+
+.track-item.track-compatible:hover {
+  background: rgba(57, 255, 20, 0.1);
+  border-color: var(--neon-green);
+  box-shadow: 0 0 12px rgba(57, 255, 20, 0.3);
+}
