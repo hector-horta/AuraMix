@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { Sliders, Music, Clock, Disc, Info } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
 import EqOrderPills from './EqOrderPills'
@@ -16,6 +16,53 @@ export default function MixMaster({
   activeTrack,
   transitionState
 }) {
+  // Neon sign animation state tracking
+  const prevActiveRef = useRef(false);
+  const lastActivePhaseRef = useRef('aligning');
+  const [neonAnim, setNeonAnim] = useState('inactive'); // 'inactive' | 'turning-on' | 'active' | 'turning-off'
+
+  // Update last active phase when transition is running
+  if (transitionState.active && transitionState.phase !== 'idle') {
+    lastActivePhaseRef.current = transitionState.phase;
+  }
+
+  useEffect(() => {
+    const wasActive = prevActiveRef.current;
+    const isActive = transitionState.active;
+    prevActiveRef.current = isActive;
+
+    if (!wasActive && isActive) {
+      // Transition just started — play neon flicker-on
+      setNeonAnim('turning-on');
+      const flickerTimer = setTimeout(() => {
+        setNeonAnim('active');
+      }, 1200); // flicker lasts 1.2s then stays solid
+      return () => clearTimeout(flickerTimer);
+    } else if (wasActive && !isActive) {
+      // Transition just ended — play fade-out
+      setNeonAnim('turning-off');
+      const fadeTimer = setTimeout(() => {
+        setNeonAnim('inactive');
+      }, 1500); // fade-out lasts 1.5s
+      return () => clearTimeout(fadeTimer);
+    }
+  }, [transitionState.active]);
+
+  // Build alert CSS class based on animation state
+  const getAlertClass = () => {
+    switch (neonAnim) {
+      case 'turning-on':
+        return `alert-phase-${transitionState.phase} alert-neon-on`;
+      case 'active':
+        return `alert-phase-${transitionState.phase}`;
+      case 'turning-off':
+        return `alert-phase-${lastActivePhaseRef.current} alert-neon-off`;
+      case 'inactive':
+      default:
+        return 'alert-inactive';
+    }
+  };
+
   // Calculate playlist stats
   const totalTracks = library.length;
   const totalDuration = library.reduce((acc, track) => acc + (track.duration || 0), 0);
@@ -108,11 +155,13 @@ export default function MixMaster({
               onOrderChange={onEqOrderChange}
               disabled={!autoDj}
             />
-            <div className={`autodj-transition-alert ${transitionState.active ? `alert-phase-${transitionState.phase}` : 'alert-inactive'}`}>
-              {transitionState.active ? (
-                <>¡MEZCLA EN CURSO! ({transitionState.phase.toUpperCase()})</>
-              ) : (
+            <div className={`autodj-transition-alert ${getAlertClass()}`}>
+              {neonAnim === 'inactive' ? (
                 <>MEZCLA INACTIVA</>
+              ) : neonAnim === 'turning-off' ? (
+                <>MEZCLA INACTIVA</>
+              ) : (
+                <>MEZCLA EN CURSO ({transitionState.phase.toUpperCase()})</>
               )}
             </div>
           </div>

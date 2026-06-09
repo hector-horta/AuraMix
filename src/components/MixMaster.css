@@ -568,3 +568,92 @@ input:checked + .slider-toggle:before {
   box-shadow: none !important;
 }
 
+/* Neon sign ON: flicker / ignition animation */
+.alert-neon-on {
+  animation: neon-flicker-on 1.2s ease-in-out forwards !important;
+}
+
+/* Neon sign OFF: fade-out animation */
+.alert-neon-off {
+  animation: neon-fade-out 1.5s ease-out forwards !important;
+}
+
+@keyframes neon-flicker-on {
+  0% {
+    opacity: 0.15;
+    border-color: rgba(255, 255, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.01);
+    box-shadow: none;
+    color: var(--text-dark);
+  }
+  3% {
+    opacity: 1;
+    border-color: var(--alert-glow);
+    background-color: var(--alert-bg);
+    box-shadow: 0 0 8px var(--alert-bg), 0 0 3px var(--alert-glow);
+    color: var(--alert-color);
+  }
+  6% {
+    opacity: 0.2;
+    box-shadow: none;
+    color: var(--text-dark);
+  }
+  9% {
+    opacity: 1;
+    box-shadow: 0 0 10px var(--alert-bg), 0 0 4px var(--alert-glow);
+  }
+  12% {
+    opacity: 0.15;
+    box-shadow: none;
+  }
+  15% {
+    opacity: 1;
+    box-shadow: 0 0 10px var(--alert-bg), 0 0 4px var(--alert-glow);
+  }
+  18% {
+    opacity: 0.35;
+    box-shadow: none;
+  }
+  24% {
+    opacity: 1;
+    box-shadow: 0 0 12px var(--alert-bg), 0 0 5px var(--alert-glow);
+  }
+  28% {
+    opacity: 0.2;
+    box-shadow: none;
+  }
+  35% {
+    opacity: 1;
+    box-shadow: 0 0 12px var(--alert-bg), 0 0 5px var(--alert-glow);
+  }
+  42% {
+    opacity: 0.4;
+    box-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 15px var(--alert-bg), 0 0 8px var(--alert-glow);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 15px var(--alert-bg), 0 0 8px var(--alert-glow);
+  }
+}
+
+@keyframes neon-fade-out {
+  0% {
+    opacity: 1;
+    background-color: var(--alert-bg);
+    color: var(--alert-color);
+    border-color: var(--alert-border);
+    box-shadow: 0 0 10px var(--alert-bg), 0 0 5px var(--alert-glow);
+  }
+  100% {
+    opacity: 0.5;
+    background-color: rgba(255, 255, 255, 0.01);
+    color: var(--text-dark);
+    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: none;
+  }
+}
+
