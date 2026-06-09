@@ -32,7 +32,6 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 
 *   **Dual Players (Decks A & B):** Independent playback controllers with real-time waveform visualization rendered on HTML5 `<canvas>`.
 *   **Local Audio Analysis:** Client-side decoding and analysis of user-uploaded files (100% private, zero server uploads).
-*   **Camelot Harmonic Analysis:** Analyzes musical key compatibility and renders a visual Camelot Wheel on the sidebar.
 *   **3-Way DJ Mode Selector:** Dynamic mode switcher with neon glow indicators in the MIX MASTER panel:
     *   **Manual (Auto-DJ Off):** The user has full manual control over volume faders, EQs, and playback. Automated transitions will not trigger at the Outro.
     *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts the selected transition algorithm (EQ Ramp or Bassline Swap). To keep the mixing flow active, a 10-second timer prep-loads the next compatible track into the stopped deck after each mix.
@@ -61,7 +60,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
 *   **AuraLoops Beat-Aligned Quantized Looper:** A third tab ("AuraLoops") in the Mixer Panel provides a grid of performance pads (4, 8, 12, 16 bars) per deck. Loop triggers snap to the track's beat grid, allowing loops of 16, 32, 48, or 64 beats. Selecting a different pad resizes the loop while preserving the loop start position, and pressing the active pad again deactivates it.
-*   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic UI styled with neon accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations. Features an elongated vertical Activity Log Console (height: 260px) that aesthetically balances the third column.
+*   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic 2-column UI styled with neon accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations. The center columns expand horizontally to provide a spacious console layout for playback, effects, and looping pads.
 
 ---
 
@@ -264,9 +263,7 @@ AuraMix/
 │   │   ├── MasterBpmSelector.jsx / MasterBpmSelector.css
 │   │   ├── MixerPanel.jsx / MixerPanel.css
 │   │   ├── LooperPad.jsx / LooperPad.css
-│   │   ├── EqKnob.jsx
-│   │   ├── CamelotPanel.jsx / CamelotPanel.css
-│   │   └── ActivityLog.jsx
+│   │   └── EqKnob.jsx
 │   │
 │   ├── App.jsx             # React layout orchestrator (binds UI state to useAudioEngine)
 │   ├── index.css           # Global design system (variables, grid layouts, animations)

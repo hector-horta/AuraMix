@@ -107,7 +107,7 @@ body {
 /* --- App Main Grid --- */
 .app-grid {
   display: grid;
-  grid-template-columns: 340px 1fr 340px;
+  grid-template-columns: 340px 1fr;
   gap: 1.5rem;
   align-items: start;
 }

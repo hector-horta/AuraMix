@@ -9,11 +9,9 @@ import {
 import { DEMO_TRACKS } from './constants/demoTracks'
 import { formatTime } from './utils/formatTime'
 import Header from './components/Header'
-import ActivityLog from './components/ActivityLog'
 import EqKnob from './components/EqKnob'
 import Waveform from './components/Waveform'
 import LibraryPanel from './components/LibraryPanel'
-import CamelotPanel from './components/CamelotPanel'
 import { useAudioEngine } from './hooks/useAudioEngine'
 import Deck from './components/Deck'
 import MixMaster from './components/MixMaster'
@@ -25,8 +23,7 @@ export default function App() {
   const [library, setLibrary] = useState([]);
   const [analyzingFile, setAnalyzingFile] = useState(null);
   const [analyzingProgress, setAnalyzingProgress] = useState("");
-  const [djLogs, setDjLogs] = useState(["DJ Engine listo. Carga canciones para comenzar."]);
-  const addLog = (msg) => setDjLogs(prev => [msg, ...prev.slice(0, 19)]);
+  const addLog = (msg) => console.log("[DJ Engine]", msg);
 
   const {
     deckA,
@@ -302,13 +299,6 @@ export default function App() {
             onToggleLoop={toggleDeckLoop}
           />
         </main>
-
-        {/* --- RIGHT SIDEBAR: CAMELOT DASHBOARD & LOGS --- */}
-        <CamelotPanel
-          activeTrack={activeTrack}
-          transitionState={transitionState}
-          logs={djLogs}
-        />
 
       </div>
     </div>
