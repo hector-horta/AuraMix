@@ -491,15 +491,23 @@ export function useAudioEngine({ library, addLog }) {
     const rawData = track.buffer.getChannelData(0);
     const step = Math.floor(rawData.length / 300);
     const peaks = [];
+    let maxVal = 0;
+    
     for (let i = 0; i < 300; i++) {
-      let max = 0;
+      let sum = 0;
+      const startIdx = i * step;
       for (let j = 0; j < step; j++) {
-        const val = Math.abs(rawData[i * step + j]);
-        if (val > max) max = val;
+        const val = rawData[startIdx + j];
+        sum += val * val;
       }
-      peaks.push(max);
+      const rms = Math.sqrt(sum / step);
+      peaks.push(rms);
+      if (rms > maxVal) maxVal = rms;
     }
-    setWaveformData(prev => ({ ...prev, [deckId]: peaks }));
+    
+    // Normalize to 1.0 to ensure the waveform fits the canvas height beautifully
+    const normalizedPeaks = maxVal > 0 ? peaks.map(p => p / maxVal) : peaks;
+    setWaveformData(prev => ({ ...prev, [deckId]: normalizedPeaks }));
 
     const initialPitch = ((masterBpm - track.bpm) / track.bpm) * 100;
     nodesRef.current[deckId].pitch = initialPitch;

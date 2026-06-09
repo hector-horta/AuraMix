@@ -12,7 +12,7 @@ export default function MixerPanel({
   onResync
 }) {
   return (
-    <div className="panel mixer-panel" style={{ marginTop: '1.5rem' }}>
+    <div className="panel mixer-panel" style={{ marginTop: '1rem' }}>
       <div className="mixer-header">
         <h2 className="mixer-title">Mixer</h2>
         <Sliders size={16} style={{ color: 'var(--text-muted)' }} />
