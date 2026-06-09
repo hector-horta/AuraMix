@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { Sliders, RefreshCw, Radio } from 'lucide-react'
+import { Sliders, RefreshCw, Radio, Repeat } from 'lucide-react'
 import EqKnob from './EqKnob'
 import AuraPad from './AuraPad'
+import LooperPad from './LooperPad'
 import './MixerPanel.css'
 
 export default function MixerPanel({
@@ -15,9 +16,10 @@ export default function MixerPanel({
   onUpdateFx,
   djMode,
   autoDjStyle,
-  onChangeAutoDjStyle
+  onChangeAutoDjStyle,
+  onToggleLoop
 }) {
-  const [activeTab, setActiveTab] = useState('mixer'); // 'mixer' or 'fx'
+  const [activeTab, setActiveTab] = useState('mixer'); // 'mixer', 'fx', or 'looper'
 
   return (
     <div className="panel mixer-panel" style={{ marginTop: '1rem' }}>
@@ -37,9 +39,16 @@ export default function MixerPanel({
           <Radio size={14} />
           <span>AuraPad</span>
         </button>
+        <button 
+          className={`mixer-tab-btn ${activeTab === 'looper' ? 'active' : ''}`}
+          onClick={() => setActiveTab('looper')}
+        >
+          <Repeat size={14} />
+          <span>AuraLoops</span>
+        </button>
       </div>
 
-      {activeTab === 'mixer' ? (
+      {activeTab === 'mixer' && (
         /* Main Mixer Control Layout: Vol A | Deck A EQs | Deck B EQs | Vol B */
         <div className="mixer-controls-layout">
           {/* Vol A */}
@@ -152,8 +161,14 @@ export default function MixerPanel({
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'fx' && (
         <AuraPad fxState={fxState} onUpdateFx={onUpdateFx} />
+      )}
+
+      {activeTab === 'looper' && (
+        <LooperPad deckA={deckA} deckB={deckB} onToggleLoop={onToggleLoop} />
       )}
     </div>
   )

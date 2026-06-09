@@ -34,7 +34,8 @@ export function useAudioEngine({ library, addLog }) {
     outroTime: 0,
     introTime: 0,
     vinylMode: true,
-    isUserSelected: false
+    isUserSelected: false,
+    activeLoopBars: null
   });
 
   const [deckB, setDeckB] = useState({
@@ -48,7 +49,8 @@ export function useAudioEngine({ library, addLog }) {
     outroTime: 0,
     introTime: 0,
     vinylMode: true,
-    isUserSelected: false
+    isUserSelected: false,
+    activeLoopBars: null
   });
 
 
@@ -113,7 +115,11 @@ export function useAudioEngine({ library, addLog }) {
       gainNode: null,
       startTime: 0,
       pausedAt: 0,
-      pitch: 0
+      pitch: 0,
+      loopActive: false,
+      loopStart: 0,
+      loopEnd: 0,
+      activeLoopBars: null
     },
     B: {
       source: null,
@@ -124,7 +130,11 @@ export function useAudioEngine({ library, addLog }) {
       gainNode: null,
       startTime: 0,
       pausedAt: 0,
-      pitch: 0
+      pitch: 0,
+      loopActive: false,
+      loopStart: 0,
+      loopEnd: 0,
+      activeLoopBars: null
     }
   });
 
@@ -231,11 +241,20 @@ export function useAudioEngine({ library, addLog }) {
   // Handle track ending
   const handlePlaybackEnded = (deckId) => {
     addLog(`Deck ${deckId}: Canción finalizada.`);
+    const nodes = nodesRef.current[deckId];
+    nodes.loopActive = false;
+    nodes.activeLoopBars = null;
+    nodes.loopStart = 0;
+    nodes.loopEnd = 0;
+    if (nodes.source) {
+      nodes.source.loop = false;
+    }
+
     if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
+      setDeckA(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null }));
       nodesRef.current.A.pausedAt = 0;
     } else {
-      setDeckB(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
+      setDeckB(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null }));
       nodesRef.current.B.pausedAt = 0;
     }
   };
@@ -500,6 +519,12 @@ export function useAudioEngine({ library, addLog }) {
     stopDeckSource(deckId);
     transitionCheckedRef.current[deckId] = false;
 
+    // Reset loop parameters in nodesRef
+    nodesRef.current[deckId].loopActive = false;
+    nodesRef.current[deckId].loopStart = 0;
+    nodesRef.current[deckId].loopEnd = 0;
+    nodesRef.current[deckId].activeLoopBars = null;
+
     // If loaded manually by user, clear any pending autoload timer for this deck
     if (!isAutoload && autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current.cancel(deckId);
@@ -548,7 +573,8 @@ export function useAudioEngine({ library, addLog }) {
       outroTime: track.outro,
       introTime: track.intro,
       vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode,
-      isUserSelected: !isAutoload
+      isUserSelected: !isAutoload,
+      activeLoopBars: null
     };
 
     if (deckId === 'A') {
@@ -581,6 +607,13 @@ export function useAudioEngine({ library, addLog }) {
     const pitch = pitchOverride !== null ? pitchOverride : nodes.pitch;
     source.playbackRate.value = 1 + (pitch / 100);
     nodes.pitch = pitch;
+
+    // Apply loop attributes if active
+    if (nodes.loopActive) {
+      source.loop = true;
+      source.loopStart = nodes.loopStart;
+      source.loopEnd = nodes.loopEnd;
+    }
 
     source.connect(nodes.lowShelf);
     nodes.source = source;
@@ -622,7 +655,15 @@ export function useAudioEngine({ library, addLog }) {
       stopDeckSource(deckId);
       const playbackRate = 1 + (nodes.pitch / 100);
       const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-      nodes.pausedAt += elapsed * playbackRate;
+      let newPausedAt = nodes.pausedAt + elapsed * playbackRate;
+      if (nodes.loopActive) {
+        const loopDuration = nodes.loopEnd - nodes.loopStart;
+        if (newPausedAt >= nodes.loopEnd && loopDuration > 0) {
+          const timeInLoop = (newPausedAt - nodes.loopStart) % loopDuration;
+          newPausedAt = nodes.loopStart + timeInLoop;
+        }
+      }
+      nodes.pausedAt = newPausedAt;
       
       if (deckId === 'A') {
         setDeckA(prev => ({ ...prev, isPlaying: false }));
@@ -647,6 +688,19 @@ export function useAudioEngine({ library, addLog }) {
     const deck = deckId === 'A' ? deckA : deckB;
     const nodes = nodesRef.current[deckId];
     if (!nodes.buffer) return;
+
+    // Clear active loop on manual seek
+    if (nodes.loopActive) {
+      nodes.loopActive = false;
+      nodes.activeLoopBars = null;
+      nodes.loopStart = 0;
+      nodes.loopEnd = 0;
+      if (nodes.source) {
+        nodes.source.loop = false;
+      }
+      const setDeck = deckId === 'A' ? setDeckA : setDeckB;
+      setDeck(prev => ({ ...prev, activeLoopBars: null }));
+    }
 
     const targetTime = percent * deck.duration;
     nodes.pausedAt = targetTime;
@@ -739,7 +793,15 @@ export function useAudioEngine({ library, addLog }) {
         const nodes = nodesRef.current.A;
         const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
         const playbackRate = 1 + (nodes.pitch / 100);
-        const current = nodes.pausedAt + elapsed * playbackRate;
+        let current = nodes.pausedAt + elapsed * playbackRate;
+        
+        if (nodes.loopActive) {
+          const loopDuration = nodes.loopEnd - nodes.loopStart;
+          if (current >= nodes.loopEnd && loopDuration > 0) {
+            const timeInLoop = (current - nodes.loopStart) % loopDuration;
+            current = nodes.loopStart + timeInLoop;
+          }
+        }
         
         if (current >= deckA.duration) {
           handlePlaybackEnded('A');
@@ -753,7 +815,15 @@ export function useAudioEngine({ library, addLog }) {
         const nodes = nodesRef.current.B;
         const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
         const playbackRate = 1 + (nodes.pitch / 100);
-        const current = nodes.pausedAt + elapsed * playbackRate;
+        let current = nodes.pausedAt + elapsed * playbackRate;
+        
+        if (nodes.loopActive) {
+          const loopDuration = nodes.loopEnd - nodes.loopStart;
+          if (current >= nodes.loopEnd && loopDuration > 0) {
+            const timeInLoop = (current - nodes.loopStart) % loopDuration;
+            current = nodes.loopStart + timeInLoop;
+          }
+        }
         
         if (current >= deckB.duration) {
           handlePlaybackEnded('B');
@@ -925,6 +995,83 @@ export function useAudioEngine({ library, addLog }) {
     scratchStop(nodes, ctx, deck, isQuickClick, clickPercent, scratchRefs, deckId, seekTo, playDeckSource, stopDeckSource);
   };
 
+  const toggleDeckLoop = (deckId, bars) => {
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const deck = deckId === 'A' ? deckA : deckB;
+    const nodes = nodesRef.current[deckId];
+    if (!deck.track || !nodes.buffer) return;
+
+    const setDeck = deckId === 'A' ? setDeckA : setDeckB;
+
+    const bpm = deck.track.bpm || 120;
+    const firstBeatOffset = deck.track.firstBeatOffset || 0;
+    const beatDuration = 60 / bpm;
+    const barDuration = 4 * beatDuration;
+    const loopDuration = bars * barDuration;
+
+    if (nodes.loopActive && nodes.activeLoopBars === bars) {
+      // Case 1: Deactivate loop
+      nodes.loopActive = false;
+      nodes.activeLoopBars = null;
+      nodes.loopStart = 0;
+      nodes.loopEnd = 0;
+
+      if (nodes.source) {
+        nodes.source.loop = false;
+      }
+      setDeck(prev => ({ ...prev, activeLoopBars: null }));
+      addLog(`Deck ${deckId}: Loop desactivado.`);
+    } else if (nodes.loopActive) {
+      // Case 2: Resize loop (maintain loopStart, calculate new loopEnd)
+      const newLoopEnd = Math.min(deck.duration, nodes.loopStart + loopDuration);
+      nodes.activeLoopBars = bars;
+      nodes.loopEnd = newLoopEnd;
+
+      if (nodes.source) {
+        nodes.source.loopEnd = newLoopEnd;
+      }
+
+      // If playing and current position is already past the new loopEnd,
+      // restart playback within the new loop bounds.
+      if (nodes.source && deck.isPlaying) {
+        const playbackRate = 1 + (nodes.pitch / 100);
+        const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
+        const current = nodes.pausedAt + elapsed * playbackRate;
+        if (current > newLoopEnd) {
+          const newLoopDuration = newLoopEnd - nodes.loopStart;
+          const timeInLoop = (current - nodes.loopStart) % newLoopDuration;
+          nodes.pausedAt = nodes.loopStart + timeInLoop;
+          playDeckSource(deckId);
+        }
+      }
+
+      setDeck(prev => ({ ...prev, activeLoopBars: bars }));
+      addLog(`Deck ${deckId}: Loop redimensionado a ${bars} barras (${formatTime(nodes.loopStart)} - ${formatTime(newLoopEnd)}).`);
+    } else {
+      // Case 3: Activate new loop
+      const elapsed = Math.max(0, deck.currentTime - firstBeatOffset);
+      const nearestBeat = Math.round(elapsed / beatDuration);
+      const loopStart = Math.max(0, firstBeatOffset + nearestBeat * beatDuration);
+      const loopEnd = Math.min(deck.duration, loopStart + loopDuration);
+
+      nodes.loopActive = true;
+      nodes.activeLoopBars = bars;
+      nodes.loopStart = loopStart;
+      nodes.loopEnd = loopEnd;
+
+      if (nodes.source) {
+        nodes.source.loop = true;
+        nodes.source.loopStart = loopStart;
+        nodes.source.loopEnd = loopEnd;
+      }
+      setDeck(prev => ({ ...prev, activeLoopBars: bars }));
+      addLog(`Deck ${deckId}: Loop activado de ${bars} barras (${formatTime(loopStart)} - ${formatTime(loopEnd)}).`);
+    }
+  };
+
   return {
     deckA,
     deckB,
@@ -958,6 +1105,7 @@ export function useAudioEngine({ library, addLog }) {
     toggleVinylMode,
     startScratch,
     updateScratch,
-    stopScratch
+    stopScratch,
+    toggleDeckLoop
   };
 }

@@ -61,7 +61,8 @@ export default function App() {
     toggleVinylMode,
     startScratch,
     updateScratch,
-    stopScratch
+    stopScratch,
+    toggleDeckLoop
   } = useAudioEngine({ library, addLog });
 
   // --- AUDIO FILE UPLOAD & ANALYSIS ---
@@ -298,6 +299,7 @@ export default function App() {
             djMode={djMode}
             autoDjStyle={autoDjStyle}
             onChangeAutoDjStyle={setAutoDjStyle}
+            onToggleLoop={toggleDeckLoop}
           />
         </main>
 

@@ -60,6 +60,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Manual Override / User Priority Rule:** Auto-DJ respects user-selected tracks manually loaded onto an idle deck. It will never overwrite the human DJ's choice of song with an autoloaded track, ensuring manual overrides are preserved.
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
+*   **AuraLoops Beat-Aligned Quantized Looper:** A third tab ("AuraLoops") in the Mixer Panel provides a grid of performance pads (4, 8, 12, 16 bars) per deck. Loop triggers snap to the track's beat grid, allowing loops of 16, 32, 48, or 64 beats. Selecting a different pad resizes the loop while preserving the loop start position, and pressing the active pad again deactivates it.
 *   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic UI styled with neon accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations. Features an elongated vertical Activity Log Console (height: 260px) that aesthetically balances the third column.
 
 ---
@@ -262,6 +263,7 @@ AuraMix/
 │   │   ├── Waveform.jsx / Waveform.css
 │   │   ├── MasterBpmSelector.jsx / MasterBpmSelector.css
 │   │   ├── MixerPanel.jsx / MixerPanel.css
+│   │   ├── LooperPad.jsx / LooperPad.css
 │   │   ├── EqKnob.jsx
 │   │   ├── CamelotPanel.jsx / CamelotPanel.css
 │   │   └── ActivityLog.jsx
