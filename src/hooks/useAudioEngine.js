@@ -31,7 +31,8 @@ export function useAudioEngine({ library, addLog }) {
     eq: { low: 0, mid: 0, high: 0 }, // values in dB (-40 to 12)
     outroTime: 0,
     introTime: 0,
-    vinylMode: true
+    vinylMode: true,
+    isUserSelected: false
   });
 
   const [deckB, setDeckB] = useState({
@@ -44,7 +45,8 @@ export function useAudioEngine({ library, addLog }) {
     eq: { low: 0, mid: 0, high: 0 },
     outroTime: 0,
     introTime: 0,
-    vinylMode: true
+    vinylMode: true,
+    isUserSelected: false
   });
 
 
@@ -454,7 +456,7 @@ export function useAudioEngine({ library, addLog }) {
         
         if (compatibleTrack) {
           addLog(`Auto-DJ: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
-          loadTrackIntoDeck(compatibleTrack, targetDeckId, true);
+          loadTrackIntoDeck(compatibleTrack, targetDeckId, true, true);
         } else {
           addLog(`Auto-DJ Advertencia: No hay canciones compatibles en la biblioteca (BPM ±5.0% y Camelot Key compatible) para mezclar automáticamente.`);
         }
@@ -464,6 +466,14 @@ export function useAudioEngine({ library, addLog }) {
 
   const loadTrackIntoDeck = (track, deckId, startAutoTransition = false, isAutoload = false) => {
     initAudio();
+
+    // Check if the current track in the deck is user-selected and we are trying to autoload
+    const currentDeck = deckId === 'A' ? deckA : deckB;
+    if (isAutoload && currentDeck.track && currentDeck.isUserSelected) {
+      addLog(`Auto-DJ: Conservando la canción "${currentDeck.track.title}" elegida por el usuario en Deck ${deckId}.`);
+      return;
+    }
+
     stopDeckSource(deckId);
     transitionCheckedRef.current[deckId] = false;
 
@@ -514,7 +524,8 @@ export function useAudioEngine({ library, addLog }) {
       eq: { low: 0, mid: 0, high: 0 },
       outroTime: track.outro,
       introTime: track.intro,
-      vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode
+      vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode,
+      isUserSelected: !isAutoload
     };
 
     if (deckId === 'A') {

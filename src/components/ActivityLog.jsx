@@ -12,7 +12,7 @@ export default function ActivityLog({ logs }) {
           fontSize: '0.7rem',
           fontFamily: 'var(--font-mono)',
           color: 'var(--text-muted)',
-          height: '140px',
+          height: '260px',
           overflowY: 'auto',
           border: '1px solid var(--border-color)',
           display: 'flex',

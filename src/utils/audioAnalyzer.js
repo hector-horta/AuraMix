@@ -536,3 +536,184 @@ export function detectIntro(audioBuffer, bpm) {
 
   return parseFloat(introTime.toFixed(2));
 }
+
+// --- MUSIC STYLE / GENRE DETECTION FEATURE ---
+
+import { GENRE_PROFILES, GENRE_COLORS, GENRE_EMOJIS } from '../constants/genreProfiles';
+export { GENRE_PROFILES, GENRE_COLORS, GENRE_EMOJIS };
+
+/**
+ * Extract spectral and onset features from an AudioBuffer.
+ * Calculates Spectral Centroid, Bass Energy Ratio, and Onset Density.
+ */
+export function extractSpectralFeatures(audioBuffer) {
+  const data = audioBuffer.getChannelData(0);
+  const sampleRate = audioBuffer.sampleRate;
+  const fftSize = 4096;
+
+  // 1. Spectral Centroid and Bass Energy Ratio using 8 FFT windows in the middle (30%-70%)
+  const numWindows = 8;
+  const startOffset = Math.floor(data.length * 0.3);
+  const endOffset = Math.floor(data.length * 0.7);
+  const step = Math.floor((endOffset - startOffset) / numWindows);
+
+  let centroidSum = 0;
+  let bassRatioSum = 0;
+  let analyzedWindowsCount = 0;
+
+  for (let w = 0; w < numWindows; w++) {
+    const windowStart = startOffset + w * step;
+    const re = new Float32Array(fftSize);
+    const im = new Float32Array(fftSize);
+
+    // hann window and copy
+    for (let i = 0; i < fftSize; i++) {
+      if (windowStart + i < data.length) {
+        const multiplier = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (fftSize - 1)));
+        re[i] = data[windowStart + i] * multiplier;
+      }
+    }
+
+    fft(re, im);
+
+    let sumFreqMag = 0;
+    let sumMag = 0;
+    let bassEnergy = 0;
+    let totalEnergy = 0;
+
+    for (let k = 1; k < fftSize / 2; k++) {
+      const freq = (k * sampleRate) / fftSize;
+      const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+      const energy = re[k] * re[k] + im[k] * im[k];
+
+      sumFreqMag += freq * mag;
+      sumMag += mag;
+
+      totalEnergy += energy;
+      if (freq < 250) {
+        bassEnergy += energy;
+      }
+    }
+
+    if (sumMag > 0) {
+      const windowCentroid = sumFreqMag / sumMag;
+      const windowBassRatio = totalEnergy > 0 ? (bassEnergy / totalEnergy) : 0;
+
+      centroidSum += windowCentroid;
+      bassRatioSum += windowBassRatio;
+      analyzedWindowsCount++;
+    }
+  }
+
+  const avgCentroid = analyzedWindowsCount > 0 ? (centroidSum / analyzedWindowsCount) : 2500;
+  const avgBassRatio = analyzedWindowsCount > 0 ? (bassRatioSum / analyzedWindowsCount) : 0.3;
+
+  // 2. Onset Density (percussive attacks per second) over a 30s window (seconds 15 to 45)
+  const windowStartSec = Math.max(0, Math.min(15, audioBuffer.duration - 30));
+  const windowDurationSec = Math.min(30, audioBuffer.duration - windowStartSec);
+  const startIndex = Math.floor(windowStartSec * sampleRate);
+  const endIndex = Math.floor((windowStartSec + windowDurationSec) * sampleRate);
+
+  const frameSizeMs = 20;
+  const frameSize = Math.floor(sampleRate * (frameSizeMs / 1000));
+  const numFrames = Math.floor((endIndex - startIndex) / frameSize);
+
+  const envelope = [];
+  for (let n = 0; n < numFrames; n++) {
+    let sumSquares = 0;
+    const frameStart = startIndex + n * frameSize;
+    for (let i = 0; i < frameSize; i++) {
+      if (frameStart + i < data.length) {
+        const val = data[frameStart + i];
+        sumSquares += val * val;
+      }
+    }
+    envelope.push(Math.sqrt(sumSquares / frameSize));
+  }
+
+  // First-order difference with Half-Wave Rectification
+  const diffs = [];
+  let maxDiff = 0;
+  for (let n = 1; n < envelope.length; n++) {
+    const diff = Math.max(0, envelope[n] - envelope[n - 1]);
+    diffs.push(diff);
+    if (diff > maxDiff) maxDiff = diff;
+  }
+
+  // Peak detection
+  let onsetCount = 0;
+  const threshold = maxDiff * 0.15 + 0.005; // 15% of max peak + absolute noise floor
+  const minSpacing = 5; // ~100ms minimum spacing (5 frames * 20ms)
+  let lastPeakIndex = -minSpacing;
+
+  for (let i = 1; i < diffs.length - 1; i++) {
+    if (diffs[i] > threshold && diffs[i] >= diffs[i - 1] && diffs[i] >= diffs[i + 1]) {
+      if (i - lastPeakIndex >= minSpacing) {
+        onsetCount++;
+        lastPeakIndex = i;
+      }
+    }
+  }
+
+  const onsetDensity = windowDurationSec > 0 ? (onsetCount / windowDurationSec) : 0;
+
+  return {
+    spectralCentroid: Math.round(avgCentroid),
+    bassEnergyRatio: parseFloat(avgBassRatio.toFixed(3)),
+    onsetDensity: parseFloat(onsetDensity.toFixed(2))
+  };
+}
+
+/**
+ * Classify the music style based on BPM and spectral features using a multivariate Gaussian model.
+ */
+export function classifyGenre(bpm, features) {
+  let bestGenre = 'Ambient/Chill';
+  let bestScore = -1;
+  const scores = [];
+
+  for (const profile of GENRE_PROFILES) {
+    // Calculate 1D Gaussian similarity match for each feature
+    const bpmMatch = Math.exp(-0.5 * Math.pow((bpm - profile.bpm.mid) / profile.bpm.sigma, 2));
+    const centroidMatch = Math.exp(-0.5 * Math.pow((features.spectralCentroid - profile.centroid.mid) / profile.centroid.sigma, 2));
+    const bassMatch = Math.exp(-0.5 * Math.pow((features.bassEnergyRatio - profile.bassRatio.mid) / profile.bassRatio.sigma, 2));
+    const onsetMatch = Math.exp(-0.5 * Math.pow((features.onsetDensity - profile.onsetDensity.mid) / profile.onsetDensity.sigma, 2));
+
+    // Weighted distance scoring
+    const w_bpm = 0.40;
+    const w_sc = 0.25;
+    const w_ber = 0.20;
+    const w_od = 0.15;
+
+    const score = w_bpm * bpmMatch + w_sc * centroidMatch + w_ber * bassMatch + w_od * onsetMatch;
+    scores.push({ name: profile.name, score });
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestGenre = profile.name;
+    }
+  }
+
+  // Sort scores to determine confidence
+  scores.sort((a, b) => b.score - a.score);
+  const confidence = Math.round(bestScore * 100);
+
+  return {
+    genre: bestGenre,
+    confidence: Math.min(100, Math.max(10, confidence))
+  };
+}
+
+/**
+ * Detect music style from AudioBuffer and previously detected BPM.
+ */
+export function detectGenre(audioBuffer, bpm) {
+  try {
+    const features = extractSpectralFeatures(audioBuffer);
+    const { genre, confidence } = classifyGenre(bpm, features);
+    return { genre, confidence, features };
+  } catch (err) {
+    console.error("Error detecting music style:", err);
+    return { genre: 'Ambient/Chill', confidence: 20, features: { spectralCentroid: 1500, bassEnergyRatio: 0.15, onsetDensity: 0.5 } };
+  }
+}

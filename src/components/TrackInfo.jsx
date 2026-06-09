@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Trash2 } from 'lucide-react'
-import { areKeysCompatible } from '../utils/audioAnalyzer'
+import { areKeysCompatible, GENRE_COLORS, GENRE_EMOJIS } from '../utils/audioAnalyzer'
 import './TrackInfo.css'
 
 export default function TrackInfo({
@@ -55,6 +55,26 @@ export default function TrackInfo({
             {track.title}
           </p>
           <p className="track-item-artist">{track.artist}</p>
+          {track.genre && (
+            <span 
+              className="track-item-genre-badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.2rem',
+                fontSize: '0.65rem',
+                padding: '0.05rem 0.35rem',
+                borderRadius: '4px',
+                border: `1px solid ${GENRE_COLORS[track.genre] || '#fff'}`,
+                color: GENRE_COLORS[track.genre] || '#fff',
+                background: 'rgba(0, 0, 0, 0.25)',
+                marginTop: '0.25rem',
+                width: 'fit-content'
+              }}
+            >
+              {GENRE_EMOJIS[track.genre] || '🎵'} {track.genre}
+            </span>
+          )}
         </div>
         <div className="track-item-meta">
           {track.isDemo && <span className="meta-badge badge-demo">Demo</span>}

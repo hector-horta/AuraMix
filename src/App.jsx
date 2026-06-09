@@ -4,7 +4,7 @@ import {
   Volume2, Disc, Check, AlertCircle, Trash2, FolderOpen, RefreshCw 
 } from 'lucide-react'
 import { 
-  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible 
+  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible, detectGenre 
 } from './utils/audioAnalyzer'
 import { DEMO_TRACKS } from './constants/demoTracks'
 import { formatTime } from './utils/formatTime'
@@ -92,6 +92,9 @@ export default function App() {
         setAnalyzingProgress("Detectando punto de entrada (Intro)...");
         const introTime = detectIntro(decodedBuffer, bpm);
 
+        setAnalyzingProgress("Detectando estilo musical...");
+        const genreData = detectGenre(decodedBuffer, bpm);
+
         const fullName = file.name.replace(/\.[^/.]+$/, ""); // Strip extension
         let artist = 'Artista Desconocido';
         let title = fullName;
@@ -120,7 +123,9 @@ export default function App() {
           firstBeatOffset: firstBeatOffset,
           duration: decodedBuffer.duration,
           buffer: decodedBuffer,
-          isDemo: false
+          isDemo: false,
+          genre: genreData.genre,
+          genreConfidence: genreData.confidence
         };
 
         setLibrary(prev => [newTrack, ...prev]);
@@ -161,16 +166,21 @@ export default function App() {
       setAnalyzingProgress("Analizando intro...");
       const introTime = detectIntro(decodedBuffer, bpm);
 
+      setAnalyzingProgress("Detectando estilo musical...");
+      const genreData = detectGenre(decodedBuffer, bpm);
+
       const analyzedTrack = {
         ...demoTrack,
         bpm: demoTrack.bpm !== undefined ? demoTrack.bpm : bpm,
         key: demoTrack.key !== undefined ? demoTrack.key : keyData.camelot,
-        keyName: demoTrack.keyName !== undefined ? demoTrack.keyName : keyData.keyName,
+        keyName: demoTrack.keyName !== undefined ? keyData.keyName : keyData.keyName,
         outro: demoTrack.outro !== undefined ? demoTrack.outro : outroTime,
         intro: demoTrack.intro !== undefined ? demoTrack.intro : introTime,
         firstBeatOffset: demoTrack.firstBeatOffset !== undefined ? demoTrack.firstBeatOffset : firstBeatOffset,
         duration: decodedBuffer.duration,
-        buffer: decodedBuffer
+        buffer: decodedBuffer,
+        genre: demoTrack.genre !== undefined ? demoTrack.genre : genreData.genre,
+        genreConfidence: demoTrack.genreConfidence !== undefined ? demoTrack.genreConfidence : genreData.confidence
       };
 
       setLibrary(prev => {
@@ -263,6 +273,7 @@ export default function App() {
               onScratchMove={(clientX, width) => updateScratch('A', clientX, width)}
               onScratchEnd={(isQuickClick, clickPercent) => stopScratch('A', isQuickClick, clickPercent)}
               accentColor="cyan"
+              djMode={djMode}
             />
             <Deck
               deckId="B"
@@ -278,6 +289,7 @@ export default function App() {
               onScratchMove={(clientX, width) => updateScratch('B', clientX, width)}
               onScratchEnd={(isQuickClick, clickPercent) => stopScratch('B', isQuickClick, clickPercent)}
               accentColor="pink"
+              djMode={djMode}
             />
           </div>
 

@@ -195,3 +195,91 @@ input:checked + .slider-toggle:before {
   line-height: 1.4;
 }
 
+/* Genre Profiles Section Styling */
+.genre-profiles-section {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.genre-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.genre-profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 0.4rem 0.2rem;
+  opacity: 0.35;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: default;
+  user-select: none;
+}
+
+.genre-profile-card:hover {
+  opacity: 0.6;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.genre-profile-card.active {
+  animation: neon-flicker-short 0.5s ease-out forwards;
+}
+
+.genre-profile-emoji {
+  font-size: 1.15rem;
+  margin-bottom: 0.2rem;
+}
+
+.genre-profile-name {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  letter-spacing: 0.5px;
+}
+
+@keyframes neon-flicker-short {
+  0% {
+    opacity: 0.35;
+    filter: brightness(0.5);
+  }
+  15% {
+    opacity: 0.85;
+    filter: brightness(1.2);
+  }
+  30% {
+    opacity: 0.5;
+    filter: brightness(0.8);
+  }
+  45% {
+    opacity: 1;
+    filter: brightness(1.3);
+  }
+  60% {
+    opacity: 0.7;
+    filter: brightness(0.9);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
