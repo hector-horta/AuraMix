@@ -1,7 +1,7 @@
-# Moodsic Web Auto-DJ 🎧
+# AuraMix Web Auto-DJ 🎧
 > Intelligent real-time audio mixer and autonomous Auto-DJ engine running entirely in the browser using the Web Audio API and React.
 
-Moodsic is an interactive web-based DJ application that allows users to upload local music files (or load demo tracks) to analyze them in real-time and perform seamless manual or automated harmonic transitions between two independent decks (Deck A and Deck B). 
+AuraMix is an interactive web-based DJ application that allows users to upload local music files (or load demo tracks) to analyze them in real-time and perform seamless manual or automated harmonic transitions between two independent decks (Deck A and Deck B). 
 
 The system utilizes client-side Digital Signal Processing (DSP) to detect the tempo (BPM), musical key (Camelot Code), and optimal entry (Intro/Drop) and exit (Outro) points. Using this analysis, the Auto-DJ engine matches the tempo, aligns the beats, and executes a smooth 3-phase EQ transition at a constant volume level to maintain mixing momentum.
 
@@ -61,7 +61,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 
 ## 🔬 How It Works Under the Hood (DSP & Audio Analysis)
 
-The file [`src/utils/audioAnalyzer.js`](file:///d:/dev/Moodsic/src/utils/audioAnalyzer.js) is the analytical core of Moodsic. It implements mathematics and DSP algorithms on client-side audio data:
+The file [`src/utils/audioAnalyzer.js`](file:///d:/dev/AuraMix/src/utils/audioAnalyzer.js) is the analytical core of AuraMix. It implements mathematics and DSP algorithms on client-side audio data:
 
 ### 1. BPM (Tempo) Detection
 To identify a track's tempo (BPM):
@@ -90,7 +90,7 @@ The exit point ("outro") is where the track begins to fade out or lose rhythmic 
 *   Locates the first block (moving chronologically) where energy decays below **22% of the peak RMS** and remains below 35% for the rest of the song. This point is marked as the Outro mixing point.
 
 ### 5. Harmonic Compatibility (Camelot Wheel)
-Two tracks are harmonically compatible if their Camelot keys are adjacent on the Camelot wheel. The system validates this in the function [`areKeysCompatible`](file:///d:/dev/Moodsic/src/utils/audioAnalyzer.js#L430-L449):
+Two tracks are harmonically compatible if their Camelot keys are adjacent on the Camelot wheel. The system validates this in the function [`areKeysCompatible`](file:///d:/dev/AuraMix/src/utils/audioAnalyzer.js#L430-L449):
 *   **Exact Key Match:** e.g., `8A` and `8A` (perfect mix).
 *   **Numerically Adjacent Keys:** e.g., `8A` and `9A` (energy boost), `8A` and `7A` (energy drop). The wheel handles circular transitions between `12` and `1`.
 *   **Relative Major/Minor Swap:** Swapping letters while keeping the same number, e.g., `8A` (A minor) and `8B` (C major).
@@ -105,7 +105,7 @@ To ensure natural sound quality and prevent extreme pitch bending when mixing, t
 
 ## 🎛️ Auto-DJ Transition Engine
 
-When the playing deck reaches the Outro point of the current track, it triggers the automated mixing sequence in the background. The core scheduling logic is managed by [`triggerAutomatedTransition`](file:///d:/dev/Moodsic/src/hooks/useAudioEngine.js#L218-L439):
+When the playing deck reaches the Outro point of the current track, it triggers the automated mixing sequence in the background. The core scheduling logic is managed by [`triggerAutomatedTransition`](file:///d:/dev/AuraMix/src/hooks/useAudioEngine.js#L218-L439):
 
 ### Tempo Matching (Pitch Matching)
 The engine reads the original BPM of the playing track (`fromBpm`) and the incoming track (`toBpm`). It calculates the speed adjustment ratio to align them to the global Master BPM:
@@ -142,10 +142,10 @@ graph TD
 
 ## 📁 Project Architecture & Directory Structure
 
-Moodsic uses a modular React architecture where audio routing, state management, and component views are decoupled:
+AuraMix uses a modular React architecture where audio routing, state management, and component views are decoupled:
 
 ```
-Moodsic/
+AuraMix/
 ├── public/                 # Static demonstration audio files
 │   ├── house-loop.wav      # House loop (BPM: 125, Key: 8A)
 │   ├── electronic-loop.wav # Electronic loop (BPM: 128, Key: 5A)
@@ -195,8 +195,8 @@ Moodsic/
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/hector-horta/Moodsic.git
-    cd Moodsic
+    git clone https://github.com/hector-horta/AuraMix.git
+    cd AuraMix
     ```
 
 2.  **Install dependencies:**
