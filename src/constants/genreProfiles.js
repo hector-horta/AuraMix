@@ -99,6 +99,15 @@ export const GENRE_PROFILES = [
     onsetDensity: { mid: 4.5, sigma: 0.8 }
   },
   {
+    name: 'Indie/Rock',
+    emoji: '🎸',
+    color: '#CD853F',
+    bpm: { mid: 120, sigma: 12 },
+    centroid: { mid: 3900, sigma: 800 },
+    bassRatio: { mid: 0.16, sigma: 0.04 },
+    onsetDensity: { mid: 4.2, sigma: 0.8 }
+  },
+  {
     name: 'Ambient/Chill',
     emoji: '🍃',
     color: '#1ABC9C',

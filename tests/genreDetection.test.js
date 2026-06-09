@@ -80,6 +80,30 @@ describe('Genre Detection Module', () => {
       expect(result.genre).toBe('Ambient/Chill');
     });
 
+    it('should classify Progressive House with 126 BPM and characteristic features', () => {
+      // Progressive House: BPM around 125, bass ratio around 0.28, centroid around 3000
+      const features = {
+        spectralCentroid: 3000,
+        bassEnergyRatio: 0.28,
+        onsetDensity: 4.5
+      };
+      
+      const result = classifyGenre(126, features);
+      expect(result.genre).toBe('Progressive House');
+    });
+
+    it('should classify Indie/Rock with 120 BPM and guitar/acoustic features', () => {
+      // Indie/Rock: BPM around 120, low bass ratio (0.16), higher centroid (3900)
+      const features = {
+        spectralCentroid: 3900,
+        bassEnergyRatio: 0.16,
+        onsetDensity: 4.2
+      };
+      
+      const result = classifyGenre(120, features);
+      expect(result.genre).toBe('Indie/Rock');
+    });
+
     it('should always return a valid confidence between 10 and 100', () => {
       const features = {
         spectralCentroid: 2500,
