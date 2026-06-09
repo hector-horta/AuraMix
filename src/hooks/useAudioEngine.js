@@ -41,6 +41,12 @@ export function useAudioEngine({ library, addLog }) {
   });
 
   const [sessionElapsedTime, setSessionElapsedTime] = useState(0);
+  const [fxState, setFxState] = useState({
+    active: false,
+    type: 'Filter',
+    x: 0.5,
+    y: 0.5
+  });
 
   // Refs to prevent multiple transition triggers/warnings in rapid succession
   const transitionActiveRef = useRef(false);
@@ -108,9 +114,82 @@ export function useAudioEngine({ library, addLog }) {
     
     const gainA = ctx.createGain();
     
+    // FX Nodes for Deck A
+    const fxInputA = ctx.createGain();
+    const fxDryGainA = ctx.createGain();
+    fxDryGainA.gain.value = 1.0;
+
+    const filterA = ctx.createBiquadFilter();
+    filterA.type = 'lowpass';
+    filterA.frequency.value = 20000;
+    filterA.Q.value = 1.0;
+
+    const delayNodeA = ctx.createDelay(2.0);
+    delayNodeA.delayTime.value = 0.3;
+    const delayFeedbackA = ctx.createGain();
+    delayFeedbackA.gain.value = 0.0;
+    const delayWetA = ctx.createGain();
+    delayWetA.gain.value = 0.0;
+
+    const flangerNodeA = ctx.createDelay(0.1);
+    flangerNodeA.delayTime.value = 0.005;
+    const flangerLFOGainA = ctx.createGain();
+    flangerLFOGainA.gain.value = 0.0;
+    const flangerFeedbackA = ctx.createGain();
+    flangerFeedbackA.gain.value = 0.0;
+    const flangerWetA = ctx.createGain();
+    flangerWetA.gain.value = 0.0;
+    const flangerLFOA = ctx.createOscillator();
+    flangerLFOA.type = 'sine';
+    flangerLFOA.frequency.value = 1.0;
+
+    const beatRepeatDelayA = ctx.createDelay(1.0);
+    beatRepeatDelayA.delayTime.value = 0.1;
+    const beatRepeatFeedbackA = ctx.createGain();
+    beatRepeatFeedbackA.gain.value = 0.0;
+    const beatRepeatInputGainA = ctx.createGain();
+    beatRepeatInputGainA.gain.value = 1.0;
+    const beatRepeatWetA = ctx.createGain();
+    beatRepeatWetA.gain.value = 0.0;
+
+    const fxOutputA = ctx.createGain();
+    
     lowA.connect(midA);
     midA.connect(highA);
-    highA.connect(gainA);
+    highA.connect(fxInputA);
+    fxInputA.connect(filterA);
+
+    // Dry Path
+    filterA.connect(fxDryGainA);
+    fxDryGainA.connect(fxOutputA);
+
+    // Delay/Echo Path
+    filterA.connect(delayNodeA);
+    delayNodeA.connect(delayFeedbackA);
+    delayFeedbackA.connect(delayNodeA);
+    delayNodeA.connect(delayWetA);
+    delayWetA.connect(fxOutputA);
+
+    // Flanger Path
+    filterA.connect(flangerNodeA);
+    flangerLFOA.connect(flangerLFOGainA);
+    flangerLFOGainA.connect(flangerNodeA.delayTime);
+    flangerNodeA.connect(flangerFeedbackA);
+    flangerFeedbackA.connect(flangerNodeA);
+    flangerNodeA.connect(flangerWetA);
+    flangerWetA.connect(fxOutputA);
+
+    // Beat Repeat Path
+    filterA.connect(beatRepeatInputGainA);
+    beatRepeatInputGainA.connect(beatRepeatDelayA);
+    beatRepeatDelayA.connect(beatRepeatFeedbackA);
+    beatRepeatFeedbackA.connect(beatRepeatDelayA);
+    beatRepeatDelayA.connect(beatRepeatWetA);
+    beatRepeatWetA.connect(fxOutputA);
+
+    flangerLFOA.start();
+
+    fxOutputA.connect(gainA);
     gainA.connect(ctx.destination);
     
     nodesRef.current.A = {
@@ -118,7 +197,23 @@ export function useAudioEngine({ library, addLog }) {
       lowShelf: lowA,
       midPeaking: midA,
       highShelf: highA,
-      gainNode: gainA
+      gainNode: gainA,
+      fxInput: fxInputA,
+      fxDryGain: fxDryGainA,
+      filterNode: filterA,
+      delayNode: delayNodeA,
+      delayFeedbackNode: delayFeedbackA,
+      delayWetNode: delayWetA,
+      flangerNode: flangerNodeA,
+      flangerLFO: flangerLFOA,
+      flangerLFOGain: flangerLFOGainA,
+      flangerFeedbackNode: flangerFeedbackA,
+      flangerWetNode: flangerWetA,
+      beatRepeatDelayNode: beatRepeatDelayA,
+      beatRepeatFeedbackNode: beatRepeatFeedbackA,
+      beatRepeatInputGainNode: beatRepeatInputGainA,
+      beatRepeatWetNode: beatRepeatWetA,
+      fxOutput: fxOutputA
     };
 
     // Create Deck B Graph
@@ -137,9 +232,82 @@ export function useAudioEngine({ library, addLog }) {
     
     const gainB = ctx.createGain();
     
+    // FX Nodes for Deck B
+    const fxInputB = ctx.createGain();
+    const fxDryGainB = ctx.createGain();
+    fxDryGainB.gain.value = 1.0;
+
+    const filterB = ctx.createBiquadFilter();
+    filterB.type = 'lowpass';
+    filterB.frequency.value = 20000;
+    filterB.Q.value = 1.0;
+
+    const delayNodeB = ctx.createDelay(2.0);
+    delayNodeB.delayTime.value = 0.3;
+    const delayFeedbackB = ctx.createGain();
+    delayFeedbackB.gain.value = 0.0;
+    const delayWetB = ctx.createGain();
+    delayWetB.gain.value = 0.0;
+
+    const flangerNodeB = ctx.createDelay(0.1);
+    flangerNodeB.delayTime.value = 0.005;
+    const flangerLFOGainB = ctx.createGain();
+    flangerLFOGainB.gain.value = 0.0;
+    const flangerFeedbackB = ctx.createGain();
+    flangerFeedbackB.gain.value = 0.0;
+    const flangerWetB = ctx.createGain();
+    flangerWetB.gain.value = 0.0;
+    const flangerLFOB = ctx.createOscillator();
+    flangerLFOB.type = 'sine';
+    flangerLFOB.frequency.value = 1.0;
+
+    const beatRepeatDelayB = ctx.createDelay(1.0);
+    beatRepeatDelayB.delayTime.value = 0.1;
+    const beatRepeatFeedbackB = ctx.createGain();
+    beatRepeatFeedbackB.gain.value = 0.0;
+    const beatRepeatInputGainB = ctx.createGain();
+    beatRepeatInputGainB.gain.value = 1.0;
+    const beatRepeatWetB = ctx.createGain();
+    beatRepeatWetB.gain.value = 0.0;
+
+    const fxOutputB = ctx.createGain();
+
     lowB.connect(midB);
     midB.connect(highB);
-    highB.connect(gainB);
+    highB.connect(fxInputB);
+    fxInputB.connect(filterB);
+
+    // Dry Path
+    filterB.connect(fxDryGainB);
+    fxDryGainB.connect(fxOutputB);
+
+    // Delay/Echo Path
+    filterB.connect(delayNodeB);
+    delayNodeB.connect(delayFeedbackB);
+    delayFeedbackB.connect(delayNodeB);
+    delayNodeB.connect(delayWetB);
+    delayWetB.connect(fxOutputB);
+
+    // Flanger Path
+    filterB.connect(flangerNodeB);
+    flangerLFOB.connect(flangerLFOGainB);
+    flangerLFOGainB.connect(flangerNodeB.delayTime);
+    flangerNodeB.connect(flangerFeedbackB);
+    flangerFeedbackB.connect(flangerNodeB);
+    flangerNodeB.connect(flangerWetB);
+    flangerWetB.connect(fxOutputB);
+
+    // Beat Repeat Path
+    filterB.connect(beatRepeatInputGainB);
+    beatRepeatInputGainB.connect(beatRepeatDelayB);
+    beatRepeatDelayB.connect(beatRepeatFeedbackB);
+    beatRepeatFeedbackB.connect(beatRepeatDelayB);
+    beatRepeatDelayB.connect(beatRepeatWetB);
+    beatRepeatWetB.connect(fxOutputB);
+
+    flangerLFOB.start();
+
+    fxOutputB.connect(gainB);
     gainB.connect(ctx.destination);
     
     nodesRef.current.B = {
@@ -147,7 +315,23 @@ export function useAudioEngine({ library, addLog }) {
       lowShelf: lowB,
       midPeaking: midB,
       highShelf: highB,
-      gainNode: gainB
+      gainNode: gainB,
+      fxInput: fxInputB,
+      fxDryGain: fxDryGainB,
+      filterNode: filterB,
+      delayNode: delayNodeB,
+      delayFeedbackNode: delayFeedbackB,
+      delayWetNode: delayWetB,
+      flangerNode: flangerNodeB,
+      flangerLFO: flangerLFOB,
+      flangerLFOGain: flangerLFOGainB,
+      flangerFeedbackNode: flangerFeedbackB,
+      flangerWetNode: flangerWetB,
+      beatRepeatDelayNode: beatRepeatDelayB,
+      beatRepeatFeedbackNode: beatRepeatFeedbackB,
+      beatRepeatInputGainNode: beatRepeatInputGainB,
+      beatRepeatWetNode: beatRepeatWetB,
+      fxOutput: fxOutputB
     };
 
     addLog("Web Audio Engine inicializado correctamente.");
@@ -825,6 +1009,134 @@ export function useAudioEngine({ library, addLog }) {
     addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
   };
 
+  const updateFx = (active, type, x, y, isInitialTouch = false) => {
+    setFxState({ active, type, x, y });
+    
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    
+    const deckId = activeDeckId;
+    const nodes = nodesRef.current[deckId];
+    
+    if (!nodes.fxInput) return;
+    
+    if (!active) {
+      // Deactivate all effects
+      nodes.filterNode.type = 'lowpass';
+      nodes.filterNode.frequency.setValueAtTime(20000, ctx.currentTime);
+      nodes.filterNode.Q.setValueAtTime(1.0, ctx.currentTime);
+      
+      nodes.delayWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.delayFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      
+      nodes.flangerWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.flangerFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      
+      nodes.beatRepeatInputGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
+      nodes.beatRepeatFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.beatRepeatWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
+      
+      if (nodes.source) {
+        nodes.source.playbackRate.cancelScheduledValues(ctx.currentTime);
+        nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, ctx.currentTime);
+        nodes.source.playbackRate.linearRampToValueAtTime(1 + (nodes.pitch / 100), ctx.currentTime + 0.3);
+      }
+      return;
+    }
+    
+    // Configure specific active effect
+    if (type === 'Filter') {
+      if (x < 0.45) {
+        nodes.filterNode.type = 'lowpass';
+        const freq = 20 + (x / 0.45) * 19980;
+        nodes.filterNode.frequency.setValueAtTime(freq, ctx.currentTime);
+      } else if (x > 0.55) {
+        nodes.filterNode.type = 'highpass';
+        const freq = 20 + ((x - 0.55) / 0.45) * 19980;
+        nodes.filterNode.frequency.setValueAtTime(freq, ctx.currentTime);
+      } else {
+        nodes.filterNode.type = 'lowpass';
+        nodes.filterNode.frequency.setValueAtTime(20000, ctx.currentTime);
+      }
+      nodes.filterNode.Q.setValueAtTime(y * 15, ctx.currentTime);
+    } else {
+      nodes.filterNode.type = 'lowpass';
+      nodes.filterNode.frequency.setValueAtTime(20000, ctx.currentTime);
+    }
+    
+    if (type === 'Delay') {
+      const time = 0.01 + x * 0.99;
+      const fb = y * 0.9;
+      nodes.delayNode.delayTime.setValueAtTime(time, ctx.currentTime);
+      nodes.delayFeedbackNode.gain.setValueAtTime(fb, ctx.currentTime);
+      nodes.delayWetNode.gain.setValueAtTime(0.5, ctx.currentTime);
+      nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    } else if (type === 'Echo') {
+      const time = 0.2 + x * 1.8;
+      const mix = y;
+      nodes.delayNode.delayTime.setValueAtTime(time, ctx.currentTime);
+      nodes.delayFeedbackNode.gain.setValueAtTime(0.6, ctx.currentTime);
+      nodes.delayWetNode.gain.setValueAtTime(mix, ctx.currentTime);
+      nodes.fxDryGain.gain.setValueAtTime(1.0 - mix * 0.5, ctx.currentTime);
+    } else {
+      nodes.delayWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.delayFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
+    }
+    
+    if (type === 'Flanger') {
+      const rate = 0.1 + x * 4.9;
+      const depth = y * 0.01;
+      nodes.flangerLFO.frequency.setValueAtTime(rate, ctx.currentTime);
+      nodes.flangerLFOGain.gain.setValueAtTime(depth, ctx.currentTime);
+      nodes.flangerFeedbackNode.gain.setValueAtTime(0.7, ctx.currentTime);
+      nodes.flangerWetNode.gain.setValueAtTime(0.5, ctx.currentTime);
+      nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    } else {
+      nodes.flangerWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.flangerFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
+    }
+    
+    if (type === 'Beat Repeat') {
+      const beatDuration = 60 / masterBpm;
+      let div = 0.25;
+      if (x < 0.2) div = 0.25;
+      else if (x < 0.4) div = 0.125;
+      else if (x < 0.6) div = 0.0625;
+      else if (x < 0.8) div = 0.03125;
+      else div = 0.015625;
+      
+      const time = beatDuration * div;
+      nodes.beatRepeatDelayNode.delayTime.setValueAtTime(time, ctx.currentTime);
+      
+      if (isInitialTouch) {
+        nodes.beatRepeatInputGainNode.gain.setValueAtTime(0.0, ctx.currentTime);
+        nodes.beatRepeatFeedbackNode.gain.setValueAtTime(0.999, ctx.currentTime);
+      }
+      
+      const mix = y;
+      nodes.beatRepeatWetNode.gain.setValueAtTime(mix, ctx.currentTime);
+      nodes.fxDryGain.gain.setValueAtTime(1.0 - mix, ctx.currentTime);
+    } else {
+      nodes.beatRepeatInputGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
+      nodes.beatRepeatFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      nodes.beatRepeatWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
+      if (type !== 'Echo') {
+        nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
+      }
+    }
+    
+    if (type === 'Tape Stop') {
+      const stopDuration = 0.1 + x * 2.0;
+      if (nodes.source) {
+        nodes.source.playbackRate.cancelScheduledValues(ctx.currentTime);
+        nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, ctx.currentTime);
+        nodes.source.playbackRate.linearRampToValueAtTime(0.0001, ctx.currentTime + stopDuration);
+      }
+    }
+  };
+
   return {
     deckA,
     deckB,
@@ -849,6 +1161,8 @@ export function useAudioEngine({ library, addLog }) {
     activeDeckId,
     setActiveDeckId,
     initAudio,
-    audioCtxRef
+    audioCtxRef,
+    fxState,
+    updateFx
   };
 }

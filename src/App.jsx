@@ -52,7 +52,9 @@ export default function App() {
     activeDeckId,
     setActiveDeckId,
     initAudio,
-    audioCtxRef
+    audioCtxRef,
+    fxState,
+    updateFx
   } = useAudioEngine({ library, addLog });
 
   // --- AUDIO FILE UPLOAD & ANALYSIS ---
@@ -273,6 +275,8 @@ export default function App() {
             onEqChange={handleEqChange}
             onVolumeChange={handleVolumeChange}
             onResync={resyncDecks}
+            fxState={fxState}
+            onUpdateFx={updateFx}
           />
         </main>
 

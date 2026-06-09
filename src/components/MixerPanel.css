@@ -5,21 +5,46 @@
   padding: 1rem 1.5rem;
 }
 
-.mixer-header {
+.mixer-header-tabs {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 0.5rem;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.75rem;
+  width: 100%;
 }
 
-.mixer-title {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
+.mixer-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+}
+
+.mixer-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mixer-tab-btn.active {
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.15);
+}
+
+.mixer-tab-btn.active svg {
+  color: var(--neon-cyan);
+  filter: drop-shadow(0 0 4px var(--neon-cyan));
 }
 
 .mixer-controls-layout {
