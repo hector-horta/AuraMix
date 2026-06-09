@@ -1,6 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import { areKeysCompatible } from '../utils/audioAnalyzer'
 import { formatTime } from '../utils/formatTime'
+import { createDeckGraph } from '../audio/audioGraph'
+import { findCompatibleTrack as findCompatible, createAutoloadScheduler } from '../audio/trackSelection'
+import {
+  calculateBeatAlignment,
+  calculateTransitionTiming,
+  scheduleEqTransition,
+  scheduleJukeboxTransition,
+  scheduleAutoDjVolume,
+  resetDeckEq,
+  PHASE_DETAILS
+} from '../audio/transitionEngine'
+import { updateFx as applyFx } from '../audio/fxEngine'
+import {
+  handleScratchStart as scratchStart,
+  handleScratchUpdate as scratchUpdate,
+  handleScratchStop as scratchStop
+} from '../audio/scratchEngine'
 
 export function useAudioEngine({ library, addLog }) {
   // Decks State
@@ -68,7 +85,6 @@ export function useAudioEngine({ library, addLog }) {
   const libraryRef = useRef(library);
   const playedTrackIdsRef = useRef(playedTrackIds);
   const djModeRef = useRef(djMode);
-  const autoloadTimeoutRef = useRef({ A: null, B: null });
 
   useEffect(() => {
     libraryRef.current = library;
@@ -77,20 +93,6 @@ export function useAudioEngine({ library, addLog }) {
   useEffect(() => {
     playedTrackIdsRef.current = playedTrackIds;
   }, [playedTrackIds]);
-
-  useEffect(() => {
-    djModeRef.current = djMode;
-    if (djMode === 'manual') {
-      if (autoloadTimeoutRef.current.A) {
-        clearTimeout(autoloadTimeoutRef.current.A);
-        autoloadTimeoutRef.current.A = null;
-      }
-      if (autoloadTimeoutRef.current.B) {
-        clearTimeout(autoloadTimeoutRef.current.B);
-        autoloadTimeoutRef.current.B = null;
-      }
-    }
-  }, [djMode]);
 
   // --- REFS FOR WEB AUDIO API ---
   const audioCtxRef = useRef(null);
@@ -127,6 +129,35 @@ export function useAudioEngine({ library, addLog }) {
   // Waveform data for drawing
   const [waveformData, setWaveformData] = useState({ A: null, B: null });
 
+  // --- Autoload Scheduler (using extracted module) ---
+  const autoloadSchedulerRef = useRef(null);
+
+  // findCompatibleTrack wrapper that reads from refs
+  const findCompatibleTrack = (currentTrack) => {
+    return findCompatible(currentTrack, libraryRef.current, playedTrackIdsRef.current, djModeRef.current);
+  };
+
+  // Initialize autoload scheduler lazily (needs loadTrackIntoDeck which is defined below)
+  const getAutoloadScheduler = () => {
+    if (!autoloadSchedulerRef.current) {
+      autoloadSchedulerRef.current = createAutoloadScheduler(
+        findCompatibleTrack,
+        loadTrackIntoDeck,
+        addLog
+      );
+    }
+    return autoloadSchedulerRef.current;
+  };
+
+  useEffect(() => {
+    djModeRef.current = djMode;
+    if (djMode === 'manual') {
+      if (autoloadSchedulerRef.current) {
+        autoloadSchedulerRef.current.cancelAll();
+      }
+    }
+  }, [djMode]);
+
   // --- INITIALIZE AUDIO CONTEXT ---
   const initAudio = () => {
     if (audioCtxRef.current) return;
@@ -135,240 +166,17 @@ export function useAudioEngine({ library, addLog }) {
     const ctx = new AudioContextClass();
     audioCtxRef.current = ctx;
     
-    // Create Deck A Graph
-    const lowA = ctx.createBiquadFilter();
-    lowA.type = 'lowshelf';
-    lowA.frequency.value = 250;
-    
-    const midA = ctx.createBiquadFilter();
-    midA.type = 'peaking';
-    midA.frequency.value = 1000;
-    midA.Q.value = 1.0;
-    
-    const highA = ctx.createBiquadFilter();
-    highA.type = 'highshelf';
-    highA.frequency.value = 4000;
-    
-    const gainA = ctx.createGain();
-    
-    // FX Nodes for Deck A
-    const fxInputA = ctx.createGain();
-    const fxDryGainA = ctx.createGain();
-    fxDryGainA.gain.value = 1.0;
-
-    const filterA = ctx.createBiquadFilter();
-    filterA.type = 'lowpass';
-    filterA.frequency.value = 20000;
-    filterA.Q.value = 1.0;
-
-    const delayNodeA = ctx.createDelay(2.0);
-    delayNodeA.delayTime.value = 0.3;
-    const delayFeedbackA = ctx.createGain();
-    delayFeedbackA.gain.value = 0.0;
-    const delayWetA = ctx.createGain();
-    delayWetA.gain.value = 0.0;
-
-    const flangerNodeA = ctx.createDelay(0.1);
-    flangerNodeA.delayTime.value = 0.005;
-    const flangerLFOGainA = ctx.createGain();
-    flangerLFOGainA.gain.value = 0.0;
-    const flangerFeedbackA = ctx.createGain();
-    flangerFeedbackA.gain.value = 0.0;
-    const flangerWetA = ctx.createGain();
-    flangerWetA.gain.value = 0.0;
-    const flangerLFOA = ctx.createOscillator();
-    flangerLFOA.type = 'sine';
-    flangerLFOA.frequency.value = 1.0;
-
-    const beatRepeatDelayA = ctx.createDelay(1.0);
-    beatRepeatDelayA.delayTime.value = 0.1;
-    const beatRepeatFeedbackA = ctx.createGain();
-    beatRepeatFeedbackA.gain.value = 0.0;
-    const beatRepeatInputGainA = ctx.createGain();
-    beatRepeatInputGainA.gain.value = 1.0;
-    const beatRepeatWetA = ctx.createGain();
-    beatRepeatWetA.gain.value = 0.0;
-
-    const fxOutputA = ctx.createGain();
-    
-    lowA.connect(midA);
-    midA.connect(highA);
-    highA.connect(fxInputA);
-    fxInputA.connect(filterA);
-
-    // Dry Path
-    filterA.connect(fxDryGainA);
-    fxDryGainA.connect(fxOutputA);
-
-    // Delay/Echo Path
-    filterA.connect(delayNodeA);
-    delayNodeA.connect(delayFeedbackA);
-    delayFeedbackA.connect(delayNodeA);
-    delayNodeA.connect(delayWetA);
-    delayWetA.connect(fxOutputA);
-
-    // Flanger Path
-    filterA.connect(flangerNodeA);
-    flangerLFOA.connect(flangerLFOGainA);
-    flangerLFOGainA.connect(flangerNodeA.delayTime);
-    flangerNodeA.connect(flangerFeedbackA);
-    flangerFeedbackA.connect(flangerNodeA);
-    flangerNodeA.connect(flangerWetA);
-    flangerWetA.connect(fxOutputA);
-
-    // Beat Repeat Path
-    filterA.connect(beatRepeatInputGainA);
-    beatRepeatInputGainA.connect(beatRepeatDelayA);
-    beatRepeatDelayA.connect(beatRepeatFeedbackA);
-    beatRepeatFeedbackA.connect(beatRepeatDelayA);
-    beatRepeatDelayA.connect(beatRepeatWetA);
-    beatRepeatWetA.connect(fxOutputA);
-
-    flangerLFOA.start();
-
-    fxOutputA.connect(gainA);
-    gainA.connect(ctx.destination);
-    
+    // Create Deck A and B graphs using the factory
+    const graphA = createDeckGraph(ctx);
     nodesRef.current.A = {
       ...nodesRef.current.A,
-      lowShelf: lowA,
-      midPeaking: midA,
-      highShelf: highA,
-      gainNode: gainA,
-      fxInput: fxInputA,
-      fxDryGain: fxDryGainA,
-      filterNode: filterA,
-      delayNode: delayNodeA,
-      delayFeedbackNode: delayFeedbackA,
-      delayWetNode: delayWetA,
-      flangerNode: flangerNodeA,
-      flangerLFO: flangerLFOA,
-      flangerLFOGain: flangerLFOGainA,
-      flangerFeedbackNode: flangerFeedbackA,
-      flangerWetNode: flangerWetA,
-      beatRepeatDelayNode: beatRepeatDelayA,
-      beatRepeatFeedbackNode: beatRepeatFeedbackA,
-      beatRepeatInputGainNode: beatRepeatInputGainA,
-      beatRepeatWetNode: beatRepeatWetA,
-      fxOutput: fxOutputA
+      ...graphA
     };
 
-    // Create Deck B Graph
-    const lowB = ctx.createBiquadFilter();
-    lowB.type = 'lowshelf';
-    lowB.frequency.value = 250;
-    
-    const midB = ctx.createBiquadFilter();
-    midB.type = 'peaking';
-    midB.frequency.value = 1000;
-    midB.Q.value = 1.0;
-    
-    const highB = ctx.createBiquadFilter();
-    highB.type = 'highshelf';
-    highB.frequency.value = 4000;
-    
-    const gainB = ctx.createGain();
-    
-    // FX Nodes for Deck B
-    const fxInputB = ctx.createGain();
-    const fxDryGainB = ctx.createGain();
-    fxDryGainB.gain.value = 1.0;
-
-    const filterB = ctx.createBiquadFilter();
-    filterB.type = 'lowpass';
-    filterB.frequency.value = 20000;
-    filterB.Q.value = 1.0;
-
-    const delayNodeB = ctx.createDelay(2.0);
-    delayNodeB.delayTime.value = 0.3;
-    const delayFeedbackB = ctx.createGain();
-    delayFeedbackB.gain.value = 0.0;
-    const delayWetB = ctx.createGain();
-    delayWetB.gain.value = 0.0;
-
-    const flangerNodeB = ctx.createDelay(0.1);
-    flangerNodeB.delayTime.value = 0.005;
-    const flangerLFOGainB = ctx.createGain();
-    flangerLFOGainB.gain.value = 0.0;
-    const flangerFeedbackB = ctx.createGain();
-    flangerFeedbackB.gain.value = 0.0;
-    const flangerWetB = ctx.createGain();
-    flangerWetB.gain.value = 0.0;
-    const flangerLFOB = ctx.createOscillator();
-    flangerLFOB.type = 'sine';
-    flangerLFOB.frequency.value = 1.0;
-
-    const beatRepeatDelayB = ctx.createDelay(1.0);
-    beatRepeatDelayB.delayTime.value = 0.1;
-    const beatRepeatFeedbackB = ctx.createGain();
-    beatRepeatFeedbackB.gain.value = 0.0;
-    const beatRepeatInputGainB = ctx.createGain();
-    beatRepeatInputGainB.gain.value = 1.0;
-    const beatRepeatWetB = ctx.createGain();
-    beatRepeatWetB.gain.value = 0.0;
-
-    const fxOutputB = ctx.createGain();
-
-    lowB.connect(midB);
-    midB.connect(highB);
-    highB.connect(fxInputB);
-    fxInputB.connect(filterB);
-
-    // Dry Path
-    filterB.connect(fxDryGainB);
-    fxDryGainB.connect(fxOutputB);
-
-    // Delay/Echo Path
-    filterB.connect(delayNodeB);
-    delayNodeB.connect(delayFeedbackB);
-    delayFeedbackB.connect(delayNodeB);
-    delayNodeB.connect(delayWetB);
-    delayWetB.connect(fxOutputB);
-
-    // Flanger Path
-    filterB.connect(flangerNodeB);
-    flangerLFOB.connect(flangerLFOGainB);
-    flangerLFOGainB.connect(flangerNodeB.delayTime);
-    flangerNodeB.connect(flangerFeedbackB);
-    flangerFeedbackB.connect(flangerNodeB);
-    flangerNodeB.connect(flangerWetB);
-    flangerWetB.connect(fxOutputB);
-
-    // Beat Repeat Path
-    filterB.connect(beatRepeatInputGainB);
-    beatRepeatInputGainB.connect(beatRepeatDelayB);
-    beatRepeatDelayB.connect(beatRepeatFeedbackB);
-    beatRepeatFeedbackB.connect(beatRepeatDelayB);
-    beatRepeatDelayB.connect(beatRepeatWetB);
-    beatRepeatWetB.connect(fxOutputB);
-
-    flangerLFOB.start();
-
-    fxOutputB.connect(gainB);
-    gainB.connect(ctx.destination);
-    
+    const graphB = createDeckGraph(ctx);
     nodesRef.current.B = {
       ...nodesRef.current.B,
-      lowShelf: lowB,
-      midPeaking: midB,
-      highShelf: highB,
-      gainNode: gainB,
-      fxInput: fxInputB,
-      fxDryGain: fxDryGainB,
-      filterNode: filterB,
-      delayNode: delayNodeB,
-      delayFeedbackNode: delayFeedbackB,
-      delayWetNode: delayWetB,
-      flangerNode: flangerNodeB,
-      flangerLFO: flangerLFOB,
-      flangerLFOGain: flangerLFOGainB,
-      flangerFeedbackNode: flangerFeedbackB,
-      flangerWetNode: flangerWetB,
-      beatRepeatDelayNode: beatRepeatDelayB,
-      beatRepeatFeedbackNode: beatRepeatFeedbackB,
-      beatRepeatInputGainNode: beatRepeatInputGainB,
-      beatRepeatWetNode: beatRepeatWetB,
-      fxOutput: fxOutputB
+      ...graphB
     };
 
     addLog("Web Audio Engine inicializado correctamente.");
@@ -427,72 +235,6 @@ export function useAudioEngine({ library, addLog }) {
     }
   };
 
-  // Find a compatible track in the library (using refs to avoid stale closures in timeouts)
-  const findCompatibleTrack = (currentTrack) => {
-    if (!currentTrack) return null;
-    
-    const currentLibrary = libraryRef.current;
-    const currentPlayedTrackIds = playedTrackIdsRef.current;
-    const currentDjMode = djModeRef.current;
-
-    // Get all compatible tracks (matching key & BPM within 5%)
-    const compatibleTracks = currentLibrary.filter(track => {
-      // Exclude current track
-      if (track.id === currentTrack.id) return false;
-      
-      const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
-      const bpmCompatible = currentDjMode === 'jukebox' ? true : (bpmDiffPercent <= 0.05);
-      const keyCompatible = areKeysCompatible(track.key, currentTrack.key);
-      
-      return bpmCompatible && keyCompatible;
-    });
-    
-    const playedRatio = currentLibrary.length > 0 ? currentPlayedTrackIds.length / currentLibrary.length : 0;
-    
-    const unplayedCandidates = compatibleTracks.filter(track => !currentPlayedTrackIds.includes(track.id));
-    const playedCandidates = compatibleTracks.filter(track => currentPlayedTrackIds.includes(track.id));
-    
-    if (unplayedCandidates.length > 0) {
-      return unplayedCandidates[0];
-    }
-    
-    // Fallback to played tracks if >= 75% of the library has been played
-    if (playedRatio >= 0.75 && playedCandidates.length > 0) {
-      // Sort played candidates by their appearance in playedTrackIds (oldest played first)
-      playedCandidates.sort((a, b) => {
-        const indexA = currentPlayedTrackIds.indexOf(a.id);
-        const indexB = currentPlayedTrackIds.indexOf(b.id);
-        return indexA - indexB;
-      });
-      return playedCandidates[0];
-    }
-    
-    return null;
-  };
-
-  // Queue a 10-second timer to autoload a compatible track in a stopped deck
-  const queueAutoloadForDeck = (stoppedDeckId, currentActiveTrack) => {
-    if (djModeRef.current === 'manual') return;
-
-    // Clear any existing timer for this deck
-    if (autoloadTimeoutRef.current[stoppedDeckId]) {
-      clearTimeout(autoloadTimeoutRef.current[stoppedDeckId]);
-    }
-
-    addLog(`Auto-DJ: Esperando 10 segundos para pre-cargar canción compatible en Deck ${stoppedDeckId}...`);
-
-    autoloadTimeoutRef.current[stoppedDeckId] = setTimeout(() => {
-      const compatibleTrack = findCompatibleTrack(currentActiveTrack);
-      if (compatibleTrack) {
-        addLog(`Auto-DJ (10s): Cargando automáticamente tema preparado "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
-        loadTrackIntoDeck(compatibleTrack, stoppedDeckId, false, true);
-      } else {
-        addLog(`Auto-DJ (10s) Info: No se encontró tema compatible en la biblioteca para pre-cargar en Deck ${stoppedDeckId}.`);
-      }
-      autoloadTimeoutRef.current[stoppedDeckId] = null;
-    }, 10000);
-  };
-
   // Trigger the multi-phase EQ Transition
   const triggerAutomatedTransition = (fromDeckId, toDeckId, incomingTrack) => {
     const ctx = audioCtxRef.current;
@@ -531,7 +273,6 @@ export function useAudioEngine({ library, addLog }) {
     
     if (djMode === 'jukebox') {
       addLog(`Alineando tempo (Modo Jukebox): Deck ${toDeckId} a velocidad original (${targetTrack?.bpm} BPM)`);
-      // Keep EQ filters flat (0dB)
       nodesTo.lowShelf.gain.value = 0;
       nodesTo.midPeaking.gain.value = 0;
       nodesTo.highShelf.gain.value = 0;
@@ -554,37 +295,14 @@ export function useAudioEngine({ library, addLog }) {
       }
     }
 
-    // --- BEAT GRID ALIGNMENT ---
+    // --- BEAT GRID ALIGNMENT (delegated to transitionEngine) ---
     const activeTrack = fromDeckId === 'A' ? deckA.track : deckB.track;
-    const fromBpm = activeTrack ? activeTrack.bpm : 120;
     const pitchFrom = fromDeckId === 'A' ? deckA.pitch : deckB.pitch;
-    const playbackRateFrom = 1 + (pitchFrom / 100);
-    const firstBeatOffsetFrom = activeTrack ? (activeTrack.firstBeatOffset || 0.0) : 0.0;
-
-    const elapsedSinceStart = Math.max(0, ctx.currentTime - nodesFrom.startTime);
-    const highPrecisionTime = nodesFrom.pausedAt + elapsedSinceStart * playbackRateFrom;
-
-    const beatDurationFrom = 60 / fromBpm;
-    const timeSinceFirstBeat = highPrecisionTime - firstBeatOffsetFrom;
-    const beatOffset = ((timeSinceFirstBeat % beatDurationFrom) + beatDurationFrom) % beatDurationFrom;
-    
-    const bufferSecondsToNextBeat = beatDurationFrom - beatOffset;
-    const delay = bufferSecondsToNextBeat / playbackRateFrom;
-    const targetBeatTime = ctx.currentTime + delay;
-    const playbackRateTo = 1 + (pitchOffset / 100);
     const pausedAtTo = nodesTo.pausedAt || 0.0;
-    const firstBeatOffsetTo = targetTrack ? (targetTrack.firstBeatOffset || 0.0) : 0.0;
-    const beatDurationTo = 60 / ((targetTrack ? targetTrack.bpm : 120) || 120);
-    
-    const k = Math.max(0, Math.ceil((pausedAtTo - firstBeatOffsetTo) / beatDurationTo));
-    const nextBeatPositionTo = firstBeatOffsetTo + k * beatDurationTo;
-    const timeToIncomingBeat = (nextBeatPositionTo - pausedAtTo) / playbackRateTo;
-    
-    let startTime = targetBeatTime - timeToIncomingBeat;
-    const syncedBeatDuration = 60 / masterBpm;
-    while (startTime < ctx.currentTime + 0.05) {
-      startTime += syncedBeatDuration;
-    }
+
+    const { startTime, delay, highPrecisionTime } = calculateBeatAlignment(
+      ctx, nodesFrom, activeTrack, pitchFrom, targetTrack, pitchOffset, pausedAtTo, masterBpm
+    );
 
     playDeckSource(toDeckId, startTime, pitchOffset);
     if (toDeckId === 'A') {
@@ -598,44 +316,19 @@ export function useAudioEngine({ library, addLog }) {
     const calculatedDelay = startTime - ctx.currentTime;
     addLog(`Alineación rítmica: Lanzando Deck ${toDeckId} (primer golpe a +${(calculatedDelay * 1000).toFixed(0)}ms)`);
 
+    // --- TRANSITION TIMING (delegated to transitionEngine) ---
     const currentDeckDuration = fromDeckId === 'A' ? deckA.duration : deckB.duration;
     const outroTimeFrom = fromDeckId === 'A' ? deckA.outroTime : deckB.outroTime;
-    const remainingTime = Math.max(2, currentDeckDuration - (highPrecisionTime + delay));
-    
-    // Transition duration = min(outro duration of outgoing track, intro duration of incoming track)
-    const outroDuration = Math.max(10, currentDeckDuration - outroTimeFrom);
-    const introDuration = incomingTrack ? Math.max(10, incomingTrack.intro) : 90;
-    const idealTransitionDuration = Math.min(outroDuration, introDuration);
-    const transitionDuration = Math.min(idealTransitionDuration, remainingTime);
-    const phaseDuration = transitionDuration / 3;
+    const introTimeVal = incomingTrack ? incomingTrack.intro : 90;
     const fromDeckVolume = fromDeckId === 'A' ? deckA.volume : deckB.volume;
+
+    const timing = calculateTransitionTiming(
+      currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime
+    );
+
+    const { transitionDuration, phaseDuration, t0, t1, t2, t3 } = timing;
     
-    addLog(`Duración de mezcla: ${transitionDuration.toFixed(1)}s (outro saliente: ${outroDuration.toFixed(1)}s, intro entrante: ${introDuration.toFixed(1)}s) — 3 fases de ${phaseDuration.toFixed(1)}s.`);
-
-    const t0 = startTime;
-    const t1 = t0 + phaseDuration;
-    const t2 = t0 + 2 * phaseDuration;
-    const t3 = t0 + 3 * phaseDuration;
-
-    if (djMode === 'jukebox') {
-      // Jukebox: Crossfade volumes
-      nodesTo.gainNode.gain.setValueAtTime(0.0, t0);
-      nodesTo.gainNode.gain.linearRampToValueAtTime(1.0, t3);
-      nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t0);
-      nodesFrom.gainNode.gain.linearRampToValueAtTime(0.0, t3);
-      
-      // Pitch ramp for outgoing track to match incoming track's BPM
-      if (nodesFrom.source && targetTrack) {
-        nodesFrom.source.playbackRate.setValueAtTime(playbackRateFrom, t0);
-        nodesFrom.source.playbackRate.linearRampToValueAtTime(targetTrack.bpm / fromBpm, t3);
-      }
-    } else {
-      // Standard Auto-DJ: Constant volume transition
-      nodesTo.gainNode.gain.setValueAtTime(1.0, t0);
-      nodesTo.gainNode.gain.setValueAtTime(1.0, t3);
-      nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t0);
-      nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t3);
-    }
+    addLog(`Duración de mezcla: ${transitionDuration.toFixed(1)}s (outro saliente: ${timing.outroDuration.toFixed(1)}s, intro entrante: ${timing.introDuration.toFixed(1)}s) — 3 fases de ${phaseDuration.toFixed(1)}s.`);
 
     if (toDeckId === 'A') {
       setDeckA(prev => ({ ...prev, volume: 1.0 }));
@@ -643,54 +336,62 @@ export function useAudioEngine({ library, addLog }) {
       setDeckB(prev => ({ ...prev, volume: 1.0 }));
     }
 
-    const times = [t0, t1, t2, t3];
-    const BAND_NODES = {
-      low: 'lowShelf',
-      mid: 'midPeaking',
-      high: 'highShelf'
-    };
+    // --- SCHEDULE AUDIO RAMPS (delegated to transitionEngine) ---
+    const fromBpm = activeTrack ? activeTrack.bpm : 120;
+    const playbackRateFrom = 1 + (pitchFrom / 100);
 
-    if (djMode !== 'jukebox') {
-      // Schedule EQs dynamically for each of the 3 phases
-      for (let p = 0; p < 3; p++) {
-        const startTimePhase = times[p];
-        const endTimePhase = times[p + 1];
-
-        eqOrder.forEach((band, j) => {
-          const nodeFrom = nodesFrom[BAND_NODES[band]];
-          const nodeTo = nodesTo[BAND_NODES[band]];
-          const initialVal = fromDeckId === 'A' ? deckA.eq[band] : deckB.eq[band];
-
-          if (j === p) {
-            // This band swaps in this phase
-            nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
-            nodeFrom.gain.linearRampToValueAtTime(-40, endTimePhase);
-            
-            nodeTo.gain.setValueAtTime(-40, startTimePhase);
-            nodeTo.gain.linearRampToValueAtTime(0, endTimePhase);
-          } else if (j < p) {
-            // Already swapped, stays at swapped values
-            nodeFrom.gain.setValueAtTime(-40, startTimePhase);
-            nodeFrom.gain.setValueAtTime(-40, endTimePhase);
-            
-            nodeTo.gain.setValueAtTime(0, startTimePhase);
-            nodeTo.gain.setValueAtTime(0, endTimePhase);
-          } else {
-            // Not yet swapped, stays at initial values
-            nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
-            nodeFrom.gain.setValueAtTime(initialVal, endTimePhase);
-            
-            nodeTo.gain.setValueAtTime(-40, startTimePhase);
-            nodeTo.gain.setValueAtTime(-40, endTimePhase);
-          }
-        });
-      }
+    if (djMode === 'jukebox') {
+      scheduleJukeboxTransition(nodesFrom, nodesTo, t0, t3, fromDeckVolume, targetTrack?.bpm, fromBpm, playbackRateFrom);
+    } else {
+      scheduleAutoDjVolume(nodesFrom, nodesTo, t0, t3, fromDeckVolume);
+      const fromEq = fromDeckId === 'A' ? deckA.eq : deckB.eq;
+      scheduleEqTransition(nodesFrom, nodesTo, eqOrder, [t0, t1, t2, t3], fromEq);
     }
 
-    const bandDetails = {
-      mid: { phase: 'mids', msg: "Mezclando frecuencias medias (Voces/Melodías)..." },
-      low: { phase: 'lows', msg: "Intercambiando frecuencias bajas (Bassline Swap)..." },
-      high: { phase: 'highs', msg: "Mezclando frecuencias altas (Hats/Groove)..." }
+    // --- SCHEDULE UI/STATE UPDATES ---
+    const scheduler = getAutoloadScheduler();
+
+    const scheduleTransitionCompletion = (completionTime, isJukebox) => {
+      setTimeout(() => {
+        setTransitionState({ active: false, phase: 'idle', progress: 0 });
+        transitionActiveRef.current = false;
+        setActiveDeckId(toDeckId);
+        
+        stopDeckSource(fromDeckId);
+        if (fromDeckId === 'A') {
+          setDeckA(prev => ({
+            ...prev,
+            isPlaying: false,
+            currentTime: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            volume: 1.0
+          }));
+        } else {
+          setDeckB(prev => ({
+            ...prev,
+            isPlaying: false,
+            currentTime: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            volume: 1.0
+          }));
+        }
+        resetDeckEq(nodesFrom);
+
+        const defaultEq = { low: 0, mid: 0, high: 0 };
+        if (toDeckId === 'A') {
+          setDeckA(prev => ({ ...prev, eq: defaultEq }));
+        } else {
+          setDeckB(prev => ({ ...prev, eq: defaultEq }));
+        }
+
+        if (isJukebox && targetTrack) {
+          changeMasterBpm(targetTrack.bpm);
+          addLog(`¡Mezcla Jukebox completada! Deck ${toDeckId} ahora en vivo a ${targetTrack?.bpm} BPM.`);
+        } else {
+          addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
+        }
+        scheduler.queue(fromDeckId, targetTrack, djModeRef.current);
+      }, completionTime * 1000);
     };
 
     if (djMode === 'jukebox') {
@@ -707,114 +408,27 @@ export function useAudioEngine({ library, addLog }) {
         setTransitionState(prev => ({ ...prev, progress: 90 }));
       }, (delay + transitionDuration * 0.9) * 1000);
 
-      setTimeout(() => {
-        setTransitionState({ active: false, phase: 'idle', progress: 0 });
-        transitionActiveRef.current = false;
-        setActiveDeckId(toDeckId);
-        
-        stopDeckSource(fromDeckId);
-        if (fromDeckId === 'A') {
-          setDeckA(prev => ({
-            ...prev,
-            isPlaying: false,
-            currentTime: 0,
-            eq: { low: 0, mid: 0, high: 0 },
-            volume: 1.0
-          }));
-          nodesFrom.lowShelf.gain.value = 0;
-          nodesFrom.midPeaking.gain.value = 0;
-          nodesFrom.highShelf.gain.value = 0;
-          nodesFrom.gainNode.gain.value = 1.0;
-        } else {
-          setDeckB(prev => ({
-            ...prev,
-            isPlaying: false,
-            currentTime: 0,
-            eq: { low: 0, mid: 0, high: 0 },
-            volume: 1.0
-          }));
-          nodesFrom.lowShelf.gain.value = 0;
-          nodesFrom.midPeaking.gain.value = 0;
-          nodesFrom.highShelf.gain.value = 0;
-          nodesFrom.gainNode.gain.value = 1.0;
-        }
-
-        // Set EQs to flat
-        const defaultEq = { low: 0, mid: 0, high: 0 };
-        if (toDeckId === 'A') {
-          setDeckA(prev => ({ ...prev, eq: defaultEq }));
-        } else {
-          setDeckB(prev => ({ ...prev, eq: defaultEq }));
-        }
-
-        // Update Master BPM to match the new track
-        if (targetTrack) {
-          changeMasterBpm(targetTrack.bpm);
-        }
-        addLog(`¡Mezcla Jukebox completada! Deck ${toDeckId} ahora en vivo a ${targetTrack?.bpm} BPM.`);
-        queueAutoloadForDeck(fromDeckId, targetTrack);
-      }, (delay + transitionDuration) * 1000);
+      scheduleTransitionCompletion(delay + transitionDuration, true);
     } else {
       setTimeout(() => {
         const b = eqOrder[0];
-        setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 15 }));
-        addLog(`Transición [1/3]: ${bandDetails[b].msg}`);
+        setTransitionState(prev => ({ ...prev, phase: PHASE_DETAILS[b].phase, progress: 15 }));
+        addLog(`Transición [1/3]: ${PHASE_DETAILS[b].msg}`);
       }, delay * 1000);
 
       setTimeout(() => {
         const b = eqOrder[1];
-        setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 50 }));
-        addLog(`Transición [2/3]: ${bandDetails[b].msg}`);
+        setTransitionState(prev => ({ ...prev, phase: PHASE_DETAILS[b].phase, progress: 50 }));
+        addLog(`Transición [2/3]: ${PHASE_DETAILS[b].msg}`);
       }, (delay + phaseDuration) * 1000);
 
       setTimeout(() => {
         const b = eqOrder[2];
-        setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 85 }));
-        addLog(`Transición [3/3]: ${bandDetails[b].msg}`);
+        setTransitionState(prev => ({ ...prev, phase: PHASE_DETAILS[b].phase, progress: 85 }));
+        addLog(`Transición [3/3]: ${PHASE_DETAILS[b].msg}`);
       }, (delay + 2 * phaseDuration) * 1000);
 
-      setTimeout(() => {
-        setTransitionState({ active: false, phase: 'idle', progress: 0 });
-        transitionActiveRef.current = false;
-        setActiveDeckId(toDeckId);
-        
-        stopDeckSource(fromDeckId);
-        if (fromDeckId === 'A') {
-          setDeckA(prev => ({
-            ...prev,
-            isPlaying: false,
-            currentTime: 0,
-            eq: { low: 0, mid: 0, high: 0 },
-            volume: 1.0
-          }));
-          nodesFrom.lowShelf.gain.value = 0;
-          nodesFrom.midPeaking.gain.value = 0;
-          nodesFrom.highShelf.gain.value = 0;
-          nodesFrom.gainNode.gain.value = 1.0;
-        } else {
-          setDeckB(prev => ({
-            ...prev,
-            isPlaying: false,
-            currentTime: 0,
-            eq: { low: 0, mid: 0, high: 0 },
-            volume: 1.0
-          }));
-          nodesFrom.lowShelf.gain.value = 0;
-          nodesFrom.midPeaking.gain.value = 0;
-          nodesFrom.highShelf.gain.value = 0;
-          nodesFrom.gainNode.gain.value = 1.0;
-        }
-
-        const defaultEq = { low: 0, mid: 0, high: 0 };
-        if (toDeckId === 'A') {
-          setDeckA(prev => ({ ...prev, eq: defaultEq }));
-        } else {
-          setDeckB(prev => ({ ...prev, eq: defaultEq }));
-        }
-
-        addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
-        queueAutoloadForDeck(fromDeckId, targetTrack);
-      }, (delay + 3 * phaseDuration) * 1000);
+      scheduleTransitionCompletion(delay + 3 * phaseDuration, false);
     }
   };
 
@@ -854,9 +468,8 @@ export function useAudioEngine({ library, addLog }) {
     transitionCheckedRef.current[deckId] = false;
 
     // If loaded manually by user, clear any pending autoload timer for this deck
-    if (!isAutoload && autoloadTimeoutRef.current[deckId]) {
-      clearTimeout(autoloadTimeoutRef.current[deckId]);
-      autoloadTimeoutRef.current[deckId] = null;
+    if (!isAutoload && autoloadSchedulerRef.current) {
+      autoloadSchedulerRef.current.cancel(deckId);
       addLog(`Auto-DJ: Cancelado pre-cargado automático en Deck ${deckId} debido a carga manual.`);
     }
 
@@ -1200,6 +813,7 @@ export function useAudioEngine({ library, addLog }) {
     addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
   };
 
+  // FX update — delegates to fxEngine module
   const updateFx = (active, type, x, y, isInitialTouch = false) => {
     setFxState({ active, type, x, y });
     
@@ -1210,122 +824,7 @@ export function useAudioEngine({ library, addLog }) {
     const deckId = activeDeckId;
     const nodes = nodesRef.current[deckId];
     
-    if (!nodes.fxInput) return;
-    
-    if (!active) {
-      // Deactivate all effects
-      nodes.filterNode.type = 'lowpass';
-      nodes.filterNode.frequency.setValueAtTime(20000, ctx.currentTime);
-      nodes.filterNode.Q.setValueAtTime(1.0, ctx.currentTime);
-      
-      nodes.delayWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.delayFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      
-      nodes.flangerWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.flangerFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      
-      nodes.beatRepeatInputGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
-      nodes.beatRepeatFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.beatRepeatWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
-      
-      if (nodes.source) {
-        nodes.source.playbackRate.cancelScheduledValues(ctx.currentTime);
-        nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, ctx.currentTime);
-        nodes.source.playbackRate.linearRampToValueAtTime(1 + (nodes.pitch / 100), ctx.currentTime + 0.3);
-      }
-      return;
-    }
-    
-    // Configure specific active effect
-    if (type === 'Filter') {
-      if (x < 0.45) {
-        nodes.filterNode.type = 'lowpass';
-        const freq = 20 + (x / 0.45) * 19980;
-        nodes.filterNode.frequency.setValueAtTime(freq, ctx.currentTime);
-      } else if (x > 0.55) {
-        nodes.filterNode.type = 'highpass';
-        const freq = 20 + ((x - 0.55) / 0.45) * 19980;
-        nodes.filterNode.frequency.setValueAtTime(freq, ctx.currentTime);
-      } else {
-        nodes.filterNode.type = 'lowpass';
-        nodes.filterNode.frequency.setValueAtTime(20000, ctx.currentTime);
-      }
-      nodes.filterNode.Q.setValueAtTime(y * 15, ctx.currentTime);
-    } else {
-      nodes.filterNode.type = 'lowpass';
-      nodes.filterNode.frequency.setValueAtTime(20000, ctx.currentTime);
-    }
-    
-    if (type === 'Delay') {
-      const time = 0.01 + x * 0.99;
-      const fb = y * 0.9;
-      nodes.delayNode.delayTime.setValueAtTime(time, ctx.currentTime);
-      nodes.delayFeedbackNode.gain.setValueAtTime(fb, ctx.currentTime);
-      nodes.delayWetNode.gain.setValueAtTime(0.5, ctx.currentTime);
-      nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
-    } else if (type === 'Echo') {
-      const time = 0.2 + x * 1.8;
-      const mix = y;
-      nodes.delayNode.delayTime.setValueAtTime(time, ctx.currentTime);
-      nodes.delayFeedbackNode.gain.setValueAtTime(0.6, ctx.currentTime);
-      nodes.delayWetNode.gain.setValueAtTime(mix, ctx.currentTime);
-      nodes.fxDryGain.gain.setValueAtTime(1.0 - mix * 0.5, ctx.currentTime);
-    } else {
-      nodes.delayWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.delayFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
-    }
-    
-    if (type === 'Flanger') {
-      const rate = 0.1 + x * 4.9;
-      const depth = y * 0.01;
-      nodes.flangerLFO.frequency.setValueAtTime(rate, ctx.currentTime);
-      nodes.flangerLFOGain.gain.setValueAtTime(depth, ctx.currentTime);
-      nodes.flangerFeedbackNode.gain.setValueAtTime(0.7, ctx.currentTime);
-      nodes.flangerWetNode.gain.setValueAtTime(0.5, ctx.currentTime);
-      nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
-    } else {
-      nodes.flangerWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.flangerFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
-    }
-    
-    if (type === 'Beat Repeat') {
-      const beatDuration = 60 / masterBpm;
-      let div = 0.25;
-      if (x < 0.2) div = 0.25;
-      else if (x < 0.4) div = 0.125;
-      else if (x < 0.6) div = 0.0625;
-      else if (x < 0.8) div = 0.03125;
-      else div = 0.015625;
-      
-      const time = beatDuration * div;
-      nodes.beatRepeatDelayNode.delayTime.setValueAtTime(time, ctx.currentTime);
-      
-      if (isInitialTouch) {
-        nodes.beatRepeatInputGainNode.gain.setValueAtTime(0.0, ctx.currentTime);
-        nodes.beatRepeatFeedbackNode.gain.setValueAtTime(0.999, ctx.currentTime);
-      }
-      
-      const mix = y;
-      nodes.beatRepeatWetNode.gain.setValueAtTime(mix, ctx.currentTime);
-      nodes.fxDryGain.gain.setValueAtTime(1.0 - mix, ctx.currentTime);
-    } else {
-      nodes.beatRepeatInputGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
-      nodes.beatRepeatFeedbackNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      nodes.beatRepeatWetNode.gain.setValueAtTime(0.0, ctx.currentTime);
-      if (type !== 'Echo') {
-        nodes.fxDryGain.gain.setValueAtTime(1.0, ctx.currentTime);
-      }
-    }
-    
-    if (type === 'Tape Stop') {
-      const stopDuration = 0.1 + x * 2.0;
-      if (nodes.source) {
-        nodes.source.playbackRate.cancelScheduledValues(ctx.currentTime);
-        nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, ctx.currentTime);
-        nodes.source.playbackRate.linearRampToValueAtTime(0.0001, ctx.currentTime + stopDuration);
-      }
-    }
+    applyFx(nodes, ctx, { active, type, x, y, masterBpm, isInitialTouch });
   };
 
   const toggleVinylMode = (deckId) => {
@@ -1344,6 +843,9 @@ export function useAudioEngine({ library, addLog }) {
     }
   };
 
+  // Scratch refs bundle for the scratch engine
+  const scratchRefs = { isScratchingRef, dragModeRef, lastXRef, lastTimeRef, bendTimeoutRef };
+
   const startScratch = (deckId, isUpperHalf, clientX, clientY) => {
     if (transitionState.active) {
       addLog(`Deck ${deckId}: Interacción bloqueada durante mezcla automática.`);
@@ -1355,31 +857,8 @@ export function useAudioEngine({ library, addLog }) {
 
     const deck = deckId === 'A' ? deckA : deckB;
     const nodes = nodesRef.current[deckId];
-    if (!nodes.buffer) return;
 
-    if (deck.vinylMode && isUpperHalf) {
-      isScratchingRef.current[deckId] = true;
-      dragModeRef.current[deckId] = 'scratch';
-      lastXRef.current[deckId] = clientX;
-      lastTimeRef.current[deckId] = performance.now();
-
-      if (!deck.isPlaying) {
-        // Play deck source silently so it produces scratch sounds when dragged
-        playDeckSource(deckId, 0, -100);
-        if (nodes.source) {
-          nodes.source.playbackRate.value = 0;
-        }
-      } else if (nodes.source) {
-        try {
-          nodes.source.playbackRate.setValueAtTime(nodes.source.playbackRate.value, ctx.currentTime);
-          nodes.source.playbackRate.linearRampToValueAtTime(0.01, ctx.currentTime + 0.18);
-        } catch (e) {}
-      }
-    } else {
-      dragModeRef.current[deckId] = 'bend';
-      lastXRef.current[deckId] = clientX;
-      lastTimeRef.current[deckId] = performance.now();
-    }
+    scratchStart(nodes, ctx, deck, isUpperHalf, clientX, scratchRefs, deckId, playDeckSource);
   };
 
   const updateScratch = (deckId, clientX, width) => {
@@ -1389,65 +868,15 @@ export function useAudioEngine({ library, addLog }) {
 
     const deck = deckId === 'A' ? deckA : deckB;
     const nodes = nodesRef.current[deckId];
-    if (!nodes.buffer || !nodes.source) return;
 
-    const dragMode = dragModeRef.current[deckId];
-    if (!dragMode) return;
+    const result = scratchUpdate(nodes, ctx, deck, clientX, width, scratchRefs, deckId);
 
-    const dx = clientX - lastXRef.current[deckId];
-    lastXRef.current[deckId] = clientX;
-
-    const now = performance.now();
-    const dt = (now - lastTimeRef.current[deckId]) / 1000;
-    lastTimeRef.current[deckId] = now;
-
-    if (dragMode === 'scratch' && isScratchingRef.current[deckId]) {
-      if (dt > 0) {
-        const velocity = (dx / width) * deck.duration;
-        const dragSpeed = velocity / dt;
-        
-        const sensitivity = 1.2;
-        let rate = dragSpeed * sensitivity;
-        rate = Math.max(-4.0, Math.min(4.0, rate));
-
-        if (Math.abs(rate) < 0.05) {
-          rate = 0;
-        }
-
-        nodes.source.playbackRate.value = rate;
-
-        const timeChange = (dx / width) * deck.duration;
-        let newTime = deck.currentTime + timeChange;
-        
-        // Safety boundary to prevent backward crash
-        newTime = Math.max(0.05, Math.min(deck.duration - 0.05, newTime));
-
-        nodes.pausedAt = newTime;
-        nodes.startTime = ctx.currentTime;
-
-        if (deckId === 'A') {
-          setDeckA(prev => ({ ...prev, currentTime: newTime }));
-        } else {
-          setDeckB(prev => ({ ...prev, currentTime: newTime }));
-        }
+    if (result) {
+      if (deckId === 'A') {
+        setDeckA(prev => ({ ...prev, currentTime: result.newTime }));
+      } else {
+        setDeckB(prev => ({ ...prev, currentTime: result.newTime }));
       }
-    } else if (dragMode === 'bend') {
-      const sensitivity = 0.5;
-      const bendFactor = (dx / width) * sensitivity;
-      const normalRate = 1 + (nodes.pitch / 100);
-      let targetRate = normalRate + bendFactor;
-      targetRate = Math.max(0.5, Math.min(1.5, targetRate));
-
-      nodes.source.playbackRate.value = targetRate;
-
-      if (bendTimeoutRef.current[deckId]) {
-        clearTimeout(bendTimeoutRef.current[deckId]);
-      }
-      bendTimeoutRef.current[deckId] = setTimeout(() => {
-        if (nodes.source && dragModeRef.current[deckId] === 'bend') {
-          nodes.source.playbackRate.value = normalRate;
-        }
-      }, 100);
     }
   };
 
@@ -1458,42 +887,8 @@ export function useAudioEngine({ library, addLog }) {
 
     const deck = deckId === 'A' ? deckA : deckB;
     const nodes = nodesRef.current[deckId];
-    if (!nodes.buffer) return;
 
-    const dragMode = dragModeRef.current[deckId];
-    
-    if (isQuickClick) {
-      seekTo(deckId, clickPercent);
-    } else {
-      if (dragMode === 'scratch') {
-        isScratchingRef.current[deckId] = false;
-        
-        if (deck.isPlaying) {
-          playDeckSource(deckId);
-          if (nodes.source) {
-            const normalRate = 1 + (nodes.pitch / 100);
-            try {
-              nodes.source.playbackRate.setValueAtTime(0.01, ctx.currentTime);
-              nodes.source.playbackRate.linearRampToValueAtTime(normalRate, ctx.currentTime + 0.18);
-            } catch (e) {}
-          }
-        } else {
-          stopDeckSource(deckId);
-        }
-      } else if (dragMode === 'bend') {
-        if (nodes.source) {
-          const normalRate = 1 + (nodes.pitch / 100);
-          nodes.source.playbackRate.value = normalRate;
-        }
-      }
-    }
-
-    dragModeRef.current[deckId] = null;
-    isScratchingRef.current[deckId] = false;
-    if (bendTimeoutRef.current[deckId]) {
-      clearTimeout(bendTimeoutRef.current[deckId]);
-      bendTimeoutRef.current[deckId] = null;
-    }
+    scratchStop(nodes, ctx, deck, isQuickClick, clickPercent, scratchRefs, deckId, seekTo, playDeckSource, stopDeckSource);
   };
 
   return {
