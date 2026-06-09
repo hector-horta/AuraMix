@@ -263,6 +263,8 @@ input:checked + .slider-toggle:before {
   flex-direction: column;
   gap: 0.5rem;
   align-items: flex-start;
+  justify-self: center;
+  width: 256px;
 }
 
 .harmony-header-group {
@@ -373,6 +375,8 @@ input:checked + .slider-toggle:before {
   border-radius: 8px;
   padding: 0.8rem 1rem;
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .harmony-placeholder {

@@ -466,8 +466,8 @@ export function detectIntro(audioBuffer, bpm) {
   const sampleRate = audioBuffer.sampleRate;
   const data = audioBuffer.getChannelData(0);
 
-  // We scan the first 60 seconds (or duration if shorter)
-  const scanDuration = Math.min(60, duration);
+  // We scan the first 120 seconds (or duration if shorter)
+  const scanDuration = Math.min(120, duration);
   const blockSize = Math.floor(sampleRate); // 1-second block
   const numBlocks = Math.floor(scanDuration);
 
@@ -531,8 +531,8 @@ export function detectIntro(audioBuffer, bpm) {
     introTime = dropBlockIdx;
   }
 
-  // Clamp the intro time: minimum 4 seconds, maximum 45 seconds (safety range)
-  introTime = Math.max(4.0, Math.min(45.0, introTime));
+  // Clamp the intro time: minimum 4 seconds, maximum 90 seconds (safety range)
+  introTime = Math.max(4.0, Math.min(90.0, introTime));
 
   return parseFloat(introTime.toFixed(2));
 }

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react'
+import { formatTime } from '../utils/formatTime'
 import './Waveform.css'
 
 export default function Waveform({
@@ -51,47 +52,67 @@ export default function Waveform({
   const outroPercent = duration > 0 ? (outroTime / duration) * 100 : 0;
 
   return (
-    <div className="waveform-container" onClick={handleContainerClick}>
-      {peaks ? (
-        <canvas className="waveform-canvas" ref={canvasRef} />
-      ) : (
-        <div className="waveform-placeholder" />
-      )}
-      
-      {/* Play progress bar */}
-      <div className="waveform-progress-bar" style={{ left: `${progressPercent}%` }} />
-
-      {/* Intro Cue marker */}
+    <div className="waveform-wrapper">
+      {/* Cue time indicators outside the waveform */}
       {duration > 0 && introTime > 0 && (
-        <>
-          <div 
-            className="intro-marker" 
-            style={{ left: `${introPercent}%` }}
-          />
-          <span 
-            className="intro-label"
-            style={{ left: `${introPercent}%` }}
-          >
-            DROP
-          </span>
-        </>
+        <span 
+          className="waveform-cue-time-badge"
+          style={{ left: `${introPercent}%` }}
+        >
+          {formatTime(introTime)}
+        </span>
+      )}
+      {duration > 0 && outroTime > 0 && (
+        <span 
+          className="waveform-cue-time-badge"
+          style={{ left: `${outroPercent}%` }}
+        >
+          {formatTime(outroTime)}
+        </span>
       )}
 
-      {/* Outro Cue marker */}
-      {duration > 0 && outroTime > 0 && (
-        <>
-          <div 
-            className="outro-marker" 
-            style={{ left: `${outroPercent}%` }}
-          />
-          <span 
-            className="outro-label"
-            style={{ left: `${outroPercent}%` }}
-          >
-            OUTRO
-          </span>
-        </>
-      )}
+      <div className="waveform-container" onClick={handleContainerClick}>
+        {peaks ? (
+          <canvas className="waveform-canvas" ref={canvasRef} />
+        ) : (
+          <div className="waveform-placeholder" />
+        )}
+        
+        {/* Play progress bar */}
+        <div className="waveform-progress-bar" style={{ left: `${progressPercent}%` }} />
+
+        {/* Intro Cue marker */}
+        {duration > 0 && introTime > 0 && (
+          <>
+            <div 
+              className="intro-marker" 
+              style={{ left: `${introPercent}%` }}
+            />
+            <span 
+              className="intro-label"
+              style={{ left: `${introPercent}%` }}
+            >
+              DROP
+            </span>
+          </>
+        )}
+
+        {/* Outro Cue marker */}
+        {duration > 0 && outroTime > 0 && (
+          <>
+            <div 
+              className="outro-marker" 
+              style={{ left: `${outroPercent}%` }}
+            />
+            <span 
+              className="outro-label"
+              style={{ left: `${outroPercent}%` }}
+            >
+              OUTRO
+            </span>
+          </>
+        )}
+      </div>
     </div>
   )
 }

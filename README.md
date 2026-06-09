@@ -78,7 +78,7 @@ To detect the musical key for harmonic mixing:
 
 ### 3. Intro / Drop Detection
 The entry point ("drop") is where the energy rises significantly after a quiet or progressive introduction:
-*   The first 60 seconds of the song are scanned in 1-second blocks.
+*   The first 120 seconds (2 minutes) of the song are scanned in 1-second blocks.
 *   Calculates the root-mean-square (**RMS**) energy of each block.
 *   Measures the energy delta between consecutive blocks. The intro/drop point is identified at the largest positive energy delta, provided the subsequent 4 seconds maintain an energy level above 80% of the track's average (ensuring it's not a temporary peak).
 
