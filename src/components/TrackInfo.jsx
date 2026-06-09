@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Trash2 } from 'lucide-react'
 import { areKeysCompatible } from '../utils/audioAnalyzer'
 import './TrackInfo.css'
@@ -14,6 +14,13 @@ export default function TrackInfo({
   onLoadTrack,
   onDeleteTrack
 }) {
+  const [isNew, setIsNew] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsNew(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Compatibility flags with current playing track
   let isCompatBpm = false;
   let isCompatKey = false;
@@ -40,7 +47,7 @@ export default function TrackInfo({
 
   return (
     <div 
-      className={`track-item ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''} ${isCompatible ? 'track-compatible' : ''}`}
+      className={`track-item ${isNew ? 'track-item-new' : ''} ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''} ${isCompatible ? 'track-compatible' : ''}`}
     >
       <div className="track-item-main">
         <div className="track-item-title-group">
