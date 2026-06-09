@@ -97,44 +97,45 @@ export default function MixMaster({
         <h2 className="mix-master-title-text">MIX MASTER</h2>
       </div>
 
-      {/* Primary Row (Line 2): BPM Master & Auto-DJ switch */}
+      {/* Primary Row (Line 2): Controls on the left, precedence and alerts on the right */}
       <div className="mix-master-row mix-master-row-primary">
-        {/* BPM Selector */}
-        <div className="mix-master-bpm-container">
-          <div className="bpm-info-group">
-            <Sliders style={{ color: 'var(--neon-pink)' }} size={16} />
-            <span className="section-label">BPM MASTER DE MEZCLA</span>
-          </div>
-          <div className="bpm-controls-row">
-            <input 
-              type="range" 
-              min="75" 
-              max="150" 
-              value={masterBpm} 
-              onChange={(e) => onChangeMasterBpm(parseInt(e.target.value))}
-              className="bpm-range-slider"
-            />
-            <div className="bpm-input-wrapper">
+        {/* Left Column: Controls (BPM Master & DJ Mode) */}
+        <div className="mix-master-left-column">
+          {/* BPM Selector */}
+          <div className="mix-master-bpm-container">
+            <div className="bpm-info-group">
+              <Sliders style={{ color: 'var(--neon-pink)' }} size={16} />
+              <span className="section-label">BPM MASTER DE MEZCLA</span>
+            </div>
+            <div className="bpm-controls-row">
               <input 
-                type="number" 
+                type="range" 
                 min="75" 
                 max="150" 
-                value={masterBpm}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val)) {
-                    onChangeMasterBpm(Math.max(75, Math.min(150, val)));
-                  }
-                }}
-                className="bpm-number-input"
+                value={masterBpm} 
+                onChange={(e) => onChangeMasterBpm(parseInt(e.target.value))}
+                className="bpm-range-slider"
               />
-              <span className="bpm-unit-text">BPM</span>
+              <div className="bpm-input-wrapper">
+                <input 
+                  type="number" 
+                  min="75" 
+                  max="150" 
+                  value={masterBpm}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) {
+                      onChangeMasterBpm(Math.max(75, Math.min(150, val)));
+                    }
+                  }}
+                  className="bpm-number-input"
+                />
+                <span className="bpm-unit-text">BPM</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Auto-DJ Control */}
-        <div className="mix-master-autodj-container">
+          {/* DJ Mode Control */}
           <div className="autodj-switch-wrapper">
             <div className="autodj-header-group">
               <Disc className={`mix-master-icon ${djMode !== 'manual' ? 'autodj-icon-spinning' : ''}`} size={16} />
@@ -146,7 +147,7 @@ export default function MixMaster({
               <button 
                 className={`mode-btn ${djMode === 'manual' ? 'active' : ''}`}
                 onClick={() => onDjModeChange('manual')}
-                title="Modo Manual: Control total sobre volumen y EQs"
+                title="Modo Manual: Control total sobre volumen EQs"
               >
                 Manual
               </button>
@@ -167,21 +168,23 @@ export default function MixMaster({
               <div className={`mode-slider slide-${djMode}`} />
             </div>
           </div>
-          <div className="eq-order-and-alert-column">
-            <EqOrderPills
-              eqOrder={eqOrder}
-              onOrderChange={onEqOrderChange}
-              disabled={djMode !== 'autodj'}
-            />
-            <div className={`autodj-transition-alert ${getAlertClass()}`}>
-              {neonAnim === 'inactive' ? (
-                <>MEZCLA INACTIVA</>
-              ) : neonAnim === 'turning-off' ? (
-                <>MEZCLA INACTIVA</>
-              ) : (
-                <>MEZCLA EN CURSO ({transitionState.phase.toUpperCase()})</>
-              )}
-            </div>
+        </div>
+
+        {/* Right Column: Precedence & Alerts */}
+        <div className="mix-master-right-column">
+          <EqOrderPills
+            eqOrder={eqOrder}
+            onOrderChange={onEqOrderChange}
+            disabled={djMode !== 'autodj'}
+          />
+          <div className={`autodj-transition-alert ${getAlertClass()}`}>
+            {neonAnim === 'inactive' ? (
+              <>MEZCLA INACTIVA</>
+            ) : neonAnim === 'turning-off' ? (
+              <>MEZCLA INACTIVA</>
+            ) : (
+              <>MEZCLA EN CURSO ({transitionState.phase.toUpperCase()})</>
+            )}
           </div>
         </div>
       </div>
