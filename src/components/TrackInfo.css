@@ -283,21 +283,19 @@
   vertical-align: middle;
 }
 
-.badge-incompatible {
+.badge-time-match {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 14px;
   height: 14px;
-  background: rgba(255, 0, 127, 0.12);
-  border: 1px solid var(--neon-pink);
-  color: var(--neon-pink);
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
   border-radius: 50%;
-  font-family: var(--font-sans);
-  font-size: 0.65rem;
-  font-weight: 900;
   margin-right: 0.35rem;
-  text-shadow: 0 0 5px rgba(255, 0, 127, 0.4);
-  box-shadow: 0 0 5px rgba(255, 0, 127, 0.15);
+  text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 5px rgba(0, 240, 255, 0.15);
   vertical-align: middle;
 }
+

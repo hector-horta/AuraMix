@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Clock } from 'lucide-react'
 import { areKeysCompatible, GENRE_COLORS, GENRE_EMOJIS } from '../utils/audioAnalyzer'
 import './TrackInfo.css'
 
@@ -38,6 +38,10 @@ export default function TrackInfo({
   // Actual compatibility calculation (used for badges next to delete button)
   const isActuallyIncompatible = activeTrack && !isCurrentTrack && !(isCompatBpm && isCompatKey);
   const isActuallyCompatible = activeTrack && !isCurrentTrack && isCompatBpm && isCompatKey;
+
+  const outroDuration = activeTrack ? (activeTrack.duration - activeTrack.outro) : 0;
+  const introDuration = track.intro || 16.0;
+  const isTimeMatch = activeTrack && !isCurrentTrack && (Math.abs(introDuration - outroDuration) <= 5);
 
   // Visual classes showing compatibility status (lights up all as compatible in manual mode)
   const isIncompatible = djMode === 'manual' ? false : isActuallyIncompatible;
@@ -109,8 +113,10 @@ export default function TrackInfo({
               <span className="played-checkmark-badge" title="Esta canción ya ha sido reproducida en la sesión">✓</span>
             )
           )}
-          {isActuallyIncompatible && (
-            <span className="badge-incompatible" title="Incompatible con la canción en reproducción (BPM o Tono diferente)">✗</span>
+          {isTimeMatch && (
+            <span className="badge-time-match" title={`¡Duración de transición compatible! El intro de esta canción (${introDuration.toFixed(1)}s) coincide con el outro de la activa (${outroDuration.toFixed(1)}s)`}>
+              <Clock size={9} />
+            </span>
           )}
         </div>
 

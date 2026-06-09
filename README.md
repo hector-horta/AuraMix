@@ -60,7 +60,8 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Intelligent Track Indicators & Badges:** Displays dynamic state badges next to songs in the library list:
     *   **Played Checkmark (`✓`):** Indicates a track has been played and won't be repeated by the Auto-DJ yet.
     *   **Fallback Warning (`!`):** Displayed on played tracks when the Auto-DJ has exhausted $\ge 75\%$ of the library, warning that these songs are now eligible to be repeated.
-    *   **Incompatibility Cross (`✗`):** Displays on tracks that are completely incompatible with the active deck (BPM diff > 5% or incompatible key). Dimmed styling is applied, and Auto-DJ will never select them.
+    *   **Transition Timing Match Clock Badge (Clock Icon):** Displays when the track's intro length matches the outro duration of the currently playing track (within ±5 seconds), highlighting structurally compatible transition opportunities.
+
 *   **Manual Override / User Priority Rule:** Auto-DJ respects user-selected tracks manually loaded onto an idle deck. It will never overwrite the human DJ's choice of song with an autoloaded track, ensuring manual overrides are preserved.
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
