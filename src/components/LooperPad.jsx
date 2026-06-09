@@ -21,20 +21,7 @@ export default function LooperPad({ deckA, deckB, onToggleLoop }) {
           </div>
           <div className="looper-deck-info">
             <h4 className="looper-deck-title" style={{ color: `var(--neon-${accentColor})` }}>Deck {deckId}</h4>
-            {isLoaded ? (
-              <p className="looper-track-name" title={`${deck.track.title} - ${deck.track.artist}`}>
-                {deck.track.title} <span className="looper-track-artist">({deck.track.artist})</span>
-              </p>
-            ) : (
-              <p className="looper-track-empty">Pista no cargada</p>
-            )}
           </div>
-          {isLoaded && (
-            <div className="looper-deck-meta">
-              <span className="looper-meta-badge">{deck.track.bpm} BPM</span>
-              <span className="looper-meta-badge">{deck.track.key}</span>
-            </div>
-          )}
         </div>
 
         <div className="looper-pads-grid">
