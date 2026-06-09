@@ -108,11 +108,13 @@ export default function MixMaster({
               onOrderChange={onEqOrderChange}
               disabled={!autoDj}
             />
-            {transitionState.active && (
-              <div className={`autodj-transition-alert alert-phase-${transitionState.phase}`}>
-                ¡MEZCLA EN CURSO! ({transitionState.phase.toUpperCase()})
-              </div>
-            )}
+            <div className={`autodj-transition-alert ${transitionState.active ? `alert-phase-${transitionState.phase}` : 'alert-inactive'}`}>
+              {transitionState.active ? (
+                <>¡MEZCLA EN CURSO! ({transitionState.phase.toUpperCase()})</>
+              ) : (
+                <>MEZCLA INACTIVA</>
+              )}
+            </div>
           </div>
         </div>
       </div>
