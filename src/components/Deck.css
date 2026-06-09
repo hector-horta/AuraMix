@@ -241,3 +241,30 @@
   border-color: var(--neon-pink);
   box-shadow: 0 0 8px rgba(255, 0, 127, 0.4);
 }
+
+/* Animation for loading a CD (song data) into the deck */
+.deck-loaded-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: cd-slot-in 0.45s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  will-change: transform, filter, opacity;
+}
+
+@keyframes cd-slot-in {
+  0% {
+    transform: translateY(28px);
+    filter: url(#vertical-blur-heavy);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(-1.5px); /* Micro-bounce up */
+    filter: url(#vertical-blur-light);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(0);
+    filter: none;
+    opacity: 1;
+  }
+}

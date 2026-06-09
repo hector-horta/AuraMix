@@ -12,6 +12,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <!-- SVG Filters for Vertical Motion Blur -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="position: absolute; width: 0; height: 0; pointer-events: none;">
+      <defs>
+        <filter id="vertical-blur-heavy">
+          <feGaussianBlur stdDeviation="0 8" />
+        </filter>
+        <filter id="vertical-blur-light">
+          <feGaussianBlur stdDeviation="0 1.5" />
+        </filter>
+      </defs>
+    </svg>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

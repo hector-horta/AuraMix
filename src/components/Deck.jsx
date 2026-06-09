@@ -77,31 +77,33 @@ export default function Deck({
 
       {deck.track ? (
         <>
-          <div className="track-info">
-            <h3 className="track-title">{deck.track.title}</h3>
-            <p className="track-artist">{deck.track.artist}</p>
-          </div>
+          <div key={deck.track.id} className="deck-loaded-content">
+            <div className="track-info">
+              <h3 className="track-title">{deck.track.title}</h3>
+              <p className="track-artist">{deck.track.artist}</p>
+            </div>
 
-          <Waveform
-            peaks={waveformData}
-            currentTime={deck.currentTime}
-            duration={deck.duration}
-            introTime={deck.introTime}
-            outroTime={deck.outroTime}
-            playedColor={playedColor}
-            unplayedColor={unplayedColor}
-            vinylMode={deck.vinylMode}
-            onScratchStart={onScratchStart}
-            onScratchMove={onScratchMove}
-            onScratchEnd={onScratchEnd}
-            onSeek={onSeek}
-          />
+            <Waveform
+              peaks={waveformData}
+              currentTime={deck.currentTime}
+              duration={deck.duration}
+              introTime={deck.introTime}
+              outroTime={deck.outroTime}
+              playedColor={playedColor}
+              unplayedColor={unplayedColor}
+              vinylMode={deck.vinylMode}
+              onScratchStart={onScratchStart}
+              onScratchMove={onScratchMove}
+              onScratchEnd={onScratchEnd}
+              onSeek={onSeek}
+            />
 
-          <div className="time-display">
-            <span>{formatTime(deck.currentTime)} / {formatTime(deck.duration)}</span>
-            <span style={{ color: `var(--neon-${accentColor})` }}>
-              {(deck.track.bpm * (1 + deck.pitch / 100)).toFixed(1)} BPM
-            </span>
+            <div className="time-display">
+              <span>{formatTime(deck.currentTime)} / {formatTime(deck.duration)}</span>
+              <span style={{ color: `var(--neon-${accentColor})` }}>
+                {(deck.track.bpm * (1 + deck.pitch / 100)).toFixed(1)} BPM
+              </span>
+            </div>
           </div>
 
           <div className="deck-controls-row">
