@@ -394,15 +394,39 @@ export function useAudioEngine({ library, addLog }) {
   const findCompatibleTrack = (currentTrack) => {
     if (!currentTrack) return null;
     
-    return library.find(track => {
-      if (track.id === currentTrack.id && library.length > 1) return false;
+    // Get all compatible tracks (matching key & BPM within 5%)
+    const compatibleTracks = library.filter(track => {
+      // Exclude current track
+      if (track.id === currentTrack.id) return false;
       
       const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
       const bpmCompatible = bpmDiffPercent <= 0.05;
       const keyCompatible = areKeysCompatible(track.key, currentTrack.key);
-
+      
       return bpmCompatible && keyCompatible;
     });
+    
+    const playedRatio = library.length > 0 ? playedTrackIds.length / library.length : 0;
+    
+    const unplayedCandidates = compatibleTracks.filter(track => !playedTrackIds.includes(track.id));
+    const playedCandidates = compatibleTracks.filter(track => playedTrackIds.includes(track.id));
+    
+    if (unplayedCandidates.length > 0) {
+      return unplayedCandidates[0];
+    }
+    
+    // Fallback to played tracks if >= 75% of the library has been played
+    if (playedRatio >= 0.75 && playedCandidates.length > 0) {
+      // Sort played candidates by their appearance in playedTrackIds (oldest played first)
+      playedCandidates.sort((a, b) => {
+        const indexA = playedTrackIds.indexOf(a.id);
+        const indexB = playedTrackIds.indexOf(b.id);
+        return indexA - indexB;
+      });
+      return playedCandidates[0];
+    }
+    
+    return null;
   };
 
   // Trigger the multi-phase EQ Transition

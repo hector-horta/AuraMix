@@ -75,6 +75,7 @@ export default function LibraryPanel({
               deckA={deckA}
               deckB={deckB}
               playedTrackIds={playedTrackIds}
+              libraryLength={library.length}
               onLoadTrack={onLoadTrack}
               onDeleteTrack={onDeleteTrack}
             />

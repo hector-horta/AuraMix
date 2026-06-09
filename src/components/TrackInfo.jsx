@@ -9,6 +9,7 @@ export default function TrackInfo({
   deckA,
   deckB,
   playedTrackIds = [],
+  libraryLength = 0,
   onLoadTrack,
   onDeleteTrack
 }) {
@@ -28,6 +29,8 @@ export default function TrackInfo({
   const isIncompatible = activeTrack && !isCurrentTrack && !(isCompatBpm && isCompatKey);
   const isCompatible = activeTrack && !isCurrentTrack && isCompatBpm && isCompatKey;
 
+  const playedRatio = libraryLength > 0 ? playedTrackIds.length / libraryLength : 0;
+
   return (
     <div 
       className={`track-item ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''} ${isCompatible ? 'track-compatible' : ''}`}
@@ -35,9 +38,6 @@ export default function TrackInfo({
       <div className="track-item-main">
         <div className="track-item-title-group">
           <p className="track-item-title">
-            {playedTrackIds.includes(track.id) && (
-              <span className="played-warning-badge" title="Esta canción ya ha sido reproducida en la sesión">!</span>
-            )}
             {track.title}
           </p>
           <p className="track-item-artist">{track.artist}</p>
@@ -67,6 +67,18 @@ export default function TrackInfo({
           </button>
         </div>
 
+        <div className="track-status-badges" style={{ marginLeft: 'auto', marginRight: '0.5rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+          {playedTrackIds.includes(track.id) && (
+            playedRatio >= 0.75 ? (
+              <span className="played-warning-badge" title="Esta canción ya ha sido reproducida, pero es elegible porque se agotó el 75% de la biblioteca">!</span>
+            ) : (
+              <span className="played-checkmark-badge" title="Esta canción ya ha sido reproducida en la sesión">✓</span>
+            )
+          )}
+          {isIncompatible && (
+            <span className="badge-incompatible" title="Incompatible con la canción en reproducción (BPM o Tono diferente)">✗</span>
+          )}
+        </div>
 
         <button 
           onClick={(e) => onDeleteTrack(track.id, e)}

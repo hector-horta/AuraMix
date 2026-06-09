@@ -41,7 +41,10 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
     *   **Phase & BPM SYNC Controls:** A central sync button between the decks to align beat phases ($\theta$ compás alignment) and BPMs in real-time, resolving any phase drift.
 *   **Draggable EQ Precedence Pills:** Dynamic 3-phase transition reordering. Choose which frequency band (LOWS, MIDS, HIGHS) is mixed 1st, 2nd, and 3rd using native drag-and-drop.
 *   **Audio-Rhythmic Pulsating Glow:** Decks pulse and glow in sync with the beat of the song using a cubic decay algorithm, providing direct visual feedback for beatmatching.
-*   **Played Track Indicators:** Displays a warning indicator badge `!` next to already played tracks in the library list to prevent repeat track selections.
+*   **Intelligent Track Indicators & Badges:** Displays dynamic state badges next to songs in the library list:
+    *   **Played Checkmark (`✓`):** Indicates a track has been played and won't be repeated by the Auto-DJ yet.
+    *   **Fallback Warning (`!`):** Displayed on played tracks when the Auto-DJ has exhausted $\ge 75\%$ of the library, warning that these songs are now eligible to be repeated.
+    *   **Incompatibility Cross (`✗`):** Displays on tracks that are completely incompatible with the active deck (BPM diff > 5% or incompatible key). Dimmed styling is applied, and Auto-DJ will never select them.
 *   **Manual Override Support:** Auto-DJ respects user-selected tracks loaded onto the incoming deck instead of automatically overwriting them.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
 *   **Premium Cyberpunk Design:** Glassmorphic UI styled with neon cyan, pink, and orange accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations.
