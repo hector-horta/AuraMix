@@ -90,13 +90,13 @@ export const GENRE_PROFILES = [
     onsetDensity: { mid: 4.0, sigma: 0.8 }
   },
   {
-    name: 'Indie/Rock',
-    emoji: '🎸',
-    color: '#CD853F',
-    bpm: { mid: 120, sigma: 15 },
-    centroid: { mid: 3750, sigma: 1000 },
-    bassRatio: { mid: 0.175, sigma: 0.06 },
-    onsetDensity: { mid: 4.5, sigma: 1.0 }
+    name: 'Progressive House',
+    emoji: '🌀',
+    color: '#00BFFF',
+    bpm: { mid: 125, sigma: 4 },
+    centroid: { mid: 3000, sigma: 500 },
+    bassRatio: { mid: 0.28, sigma: 0.06 },
+    onsetDensity: { mid: 4.5, sigma: 0.8 }
   },
   {
     name: 'Ambient/Chill',
