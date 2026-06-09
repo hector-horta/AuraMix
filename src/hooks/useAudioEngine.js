@@ -313,14 +313,18 @@ export function useAudioEngine({ library, addLog }) {
     addLog(`Alineación rítmica: Lanzando Deck ${toDeckId} (primer golpe a +${(calculatedDelay * 1000).toFixed(0)}ms)`);
 
     const currentDeckDuration = fromDeckId === 'A' ? deckA.duration : deckB.duration;
+    const outroTimeFrom = fromDeckId === 'A' ? deckA.outroTime : deckB.outroTime;
     const remainingTime = Math.max(2, currentDeckDuration - (highPrecisionTime + delay));
     
-    const defaultTransitionDuration = incomingTrack ? Math.max(90, incomingTrack.intro) : 90;
-    const transitionDuration = Math.min(defaultTransitionDuration, remainingTime);
+    // Transition duration = min(outro duration of outgoing track, intro duration of incoming track)
+    const outroDuration = Math.max(10, currentDeckDuration - outroTimeFrom);
+    const introDuration = incomingTrack ? Math.max(10, incomingTrack.intro) : 90;
+    const idealTransitionDuration = Math.min(outroDuration, introDuration);
+    const transitionDuration = Math.min(idealTransitionDuration, remainingTime);
     const phaseDuration = transitionDuration / 3;
     const fromDeckVolume = fromDeckId === 'A' ? deckA.volume : deckB.volume;
     
-    addLog(`Alineación del Drop: Mezcla de ecualización en 3 fases - Duración total: ${transitionDuration.toFixed(1)}s.`);
+    addLog(`Duración de mezcla: ${transitionDuration.toFixed(1)}s (outro saliente: ${outroDuration.toFixed(1)}s, intro entrante: ${introDuration.toFixed(1)}s) — 3 fases de ${phaseDuration.toFixed(1)}s.`);
 
     const t0 = startTime;
     const t1 = t0 + phaseDuration;
