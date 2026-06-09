@@ -64,6 +64,34 @@ export function useAudioEngine({ library, addLog }) {
   const elapsedAccumulatorRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
 
+  // Refs for async timer stability (avoiding stale closures)
+  const libraryRef = useRef(library);
+  const playedTrackIdsRef = useRef(playedTrackIds);
+  const djModeRef = useRef(djMode);
+  const autoloadTimeoutRef = useRef({ A: null, B: null });
+
+  useEffect(() => {
+    libraryRef.current = library;
+  }, [library]);
+
+  useEffect(() => {
+    playedTrackIdsRef.current = playedTrackIds;
+  }, [playedTrackIds]);
+
+  useEffect(() => {
+    djModeRef.current = djMode;
+    if (djMode === 'manual') {
+      if (autoloadTimeoutRef.current.A) {
+        clearTimeout(autoloadTimeoutRef.current.A);
+        autoloadTimeoutRef.current.A = null;
+      }
+      if (autoloadTimeoutRef.current.B) {
+        clearTimeout(autoloadTimeoutRef.current.B);
+        autoloadTimeoutRef.current.B = null;
+      }
+    }
+  }, [djMode]);
+
   // --- REFS FOR WEB AUDIO API ---
   const audioCtxRef = useRef(null);
   
@@ -399,26 +427,30 @@ export function useAudioEngine({ library, addLog }) {
     }
   };
 
-  // Find a compatible track in the library
+  // Find a compatible track in the library (using refs to avoid stale closures in timeouts)
   const findCompatibleTrack = (currentTrack) => {
     if (!currentTrack) return null;
     
+    const currentLibrary = libraryRef.current;
+    const currentPlayedTrackIds = playedTrackIdsRef.current;
+    const currentDjMode = djModeRef.current;
+
     // Get all compatible tracks (matching key & BPM within 5%)
-    const compatibleTracks = library.filter(track => {
+    const compatibleTracks = currentLibrary.filter(track => {
       // Exclude current track
       if (track.id === currentTrack.id) return false;
       
       const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
-      const bpmCompatible = djMode === 'jukebox' ? true : (bpmDiffPercent <= 0.05);
+      const bpmCompatible = currentDjMode === 'jukebox' ? true : (bpmDiffPercent <= 0.05);
       const keyCompatible = areKeysCompatible(track.key, currentTrack.key);
       
       return bpmCompatible && keyCompatible;
     });
     
-    const playedRatio = library.length > 0 ? playedTrackIds.length / library.length : 0;
+    const playedRatio = currentLibrary.length > 0 ? currentPlayedTrackIds.length / currentLibrary.length : 0;
     
-    const unplayedCandidates = compatibleTracks.filter(track => !playedTrackIds.includes(track.id));
-    const playedCandidates = compatibleTracks.filter(track => playedTrackIds.includes(track.id));
+    const unplayedCandidates = compatibleTracks.filter(track => !currentPlayedTrackIds.includes(track.id));
+    const playedCandidates = compatibleTracks.filter(track => currentPlayedTrackIds.includes(track.id));
     
     if (unplayedCandidates.length > 0) {
       return unplayedCandidates[0];
@@ -428,14 +460,37 @@ export function useAudioEngine({ library, addLog }) {
     if (playedRatio >= 0.75 && playedCandidates.length > 0) {
       // Sort played candidates by their appearance in playedTrackIds (oldest played first)
       playedCandidates.sort((a, b) => {
-        const indexA = playedTrackIds.indexOf(a.id);
-        const indexB = playedTrackIds.indexOf(b.id);
+        const indexA = currentPlayedTrackIds.indexOf(a.id);
+        const indexB = currentPlayedTrackIds.indexOf(b.id);
         return indexA - indexB;
       });
       return playedCandidates[0];
     }
     
     return null;
+  };
+
+  // Queue a 10-second timer to autoload a compatible track in a stopped deck
+  const queueAutoloadForDeck = (stoppedDeckId, currentActiveTrack) => {
+    if (djModeRef.current === 'manual') return;
+
+    // Clear any existing timer for this deck
+    if (autoloadTimeoutRef.current[stoppedDeckId]) {
+      clearTimeout(autoloadTimeoutRef.current[stoppedDeckId]);
+    }
+
+    addLog(`Auto-DJ: Esperando 10 segundos para pre-cargar canción compatible en Deck ${stoppedDeckId}...`);
+
+    autoloadTimeoutRef.current[stoppedDeckId] = setTimeout(() => {
+      const compatibleTrack = findCompatibleTrack(currentActiveTrack);
+      if (compatibleTrack) {
+        addLog(`Auto-DJ (10s): Cargando automáticamente tema preparado "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
+        loadTrackIntoDeck(compatibleTrack, stoppedDeckId, false, true);
+      } else {
+        addLog(`Auto-DJ (10s) Info: No se encontró tema compatible en la biblioteca para pre-cargar en Deck ${stoppedDeckId}.`);
+      }
+      autoloadTimeoutRef.current[stoppedDeckId] = null;
+    }, 10000);
   };
 
   // Trigger the multi-phase EQ Transition
@@ -697,6 +752,7 @@ export function useAudioEngine({ library, addLog }) {
           changeMasterBpm(targetTrack.bpm);
         }
         addLog(`¡Mezcla Jukebox completada! Deck ${toDeckId} ahora en vivo a ${targetTrack?.bpm} BPM.`);
+        queueAutoloadForDeck(fromDeckId, targetTrack);
       }, (delay + transitionDuration) * 1000);
     } else {
       setTimeout(() => {
@@ -757,6 +813,7 @@ export function useAudioEngine({ library, addLog }) {
         }
 
         addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
+        queueAutoloadForDeck(fromDeckId, targetTrack);
       }, (delay + 3 * phaseDuration) * 1000);
     }
   };
@@ -791,10 +848,17 @@ export function useAudioEngine({ library, addLog }) {
     }
   };
 
-  const loadTrackIntoDeck = (track, deckId, startAutoTransition = false) => {
+  const loadTrackIntoDeck = (track, deckId, startAutoTransition = false, isAutoload = false) => {
     initAudio();
     stopDeckSource(deckId);
     transitionCheckedRef.current[deckId] = false;
+
+    // If loaded manually by user, clear any pending autoload timer for this deck
+    if (!isAutoload && autoloadTimeoutRef.current[deckId]) {
+      clearTimeout(autoloadTimeoutRef.current[deckId]);
+      autoloadTimeoutRef.current[deckId] = null;
+      addLog(`Auto-DJ: Cancelado pre-cargado automático en Deck ${deckId} debido a carga manual.`);
+    }
 
     // Track played history
     setPlayedTrackIds(prev => prev.includes(track.id) ? prev : [...prev, track.id]);
