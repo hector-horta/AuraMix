@@ -236,6 +236,7 @@ export default function App() {
             onEqOrderChange={setEqOrder}
             sessionElapsedTime={sessionElapsedTime}
             activeTrack={activeTrack}
+            transitionState={transitionState}
           />
 
           {/* Decks Grid */}

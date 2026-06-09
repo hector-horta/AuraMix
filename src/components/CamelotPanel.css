@@ -195,15 +195,3 @@ input:checked + .slider-toggle:before {
   line-height: 1.4;
 }
 
-.autodj-transition-alert {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  background: rgba(255, 159, 28, 0.1);
-  color: var(--neon-orange);
-  border: 1px solid rgba(255, 159, 28, 0.2);
-  padding: 0.4rem;
-  border-radius: 4px;
-  text-align: center;
-  margin-top: 0.25rem;
-  animation: flash-warning 1s infinite alternate;
-}

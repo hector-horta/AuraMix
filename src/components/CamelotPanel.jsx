@@ -30,32 +30,7 @@ export default function CamelotPanel({
         )}
       </div>
 
-      {/* Compatibility explanation */}
-      <div className="panel" style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.1)' }}>
-        <div className="compatibility-guide">
-          <span className="eq-knob-label" style={{ fontWeight: 'bold' }}>Guía Armónica (Regla de Mezcla)</span>
-          <p style={{ fontSize: '0.7rem' }}>Para transiciones fluidas sin disonancia armónica, mezcla canciones cuya clave sea:</p>
-          <div className="guide-item">
-            <div className="guide-dot dot-same"></div>
-            <span>Misma tonalidad (ej. 8A ➔ 8A)</span>
-          </div>
-          <div className="guide-item">
-            <div className="guide-dot dot-adjacent"></div>
-            <span>Código contiguo en la rueda (ej. 8A ➔ 9A o 7A)</span>
-          </div>
-          <div className="guide-item">
-            <div className="guide-dot dot-relative"></div>
-            <span>Cambio de escala Relativa Mayor/Menor (ej. 8A ➔ 8B)</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Live transition warning */}
-      {transitionState.active && (
-        <div className="autodj-transition-alert">
-          ¡TRANSMISIÓN EN CURSO! ({transitionState.phase.toUpperCase()})
-        </div>
-      )}
 
       {/* Activity Logger */}
       <ActivityLog logs={logs} />

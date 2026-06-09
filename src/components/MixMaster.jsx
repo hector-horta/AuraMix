@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sliders, Music, Clock, Disc } from 'lucide-react'
+import { Sliders, Music, Clock, Disc, Info } from 'lucide-react'
 import { formatTime } from '../utils/formatTime'
 import EqOrderPills from './EqOrderPills'
 import './MixMaster.css'
@@ -13,7 +13,8 @@ export default function MixMaster({
   eqOrder,
   onEqOrderChange,
   sessionElapsedTime,
-  activeTrack
+  activeTrack,
+  transitionState
 }) {
   // Calculate playlist stats
   const totalTracks = library.length;
@@ -90,7 +91,7 @@ export default function MixMaster({
           <div className="autodj-switch-wrapper">
             <div className="autodj-header-group">
               <Disc className={`mix-master-icon ${autoDj ? 'autodj-icon-spinning' : ''}`} size={16} />
-              <span className="section-label">AUTO-DJ</span>
+              <span className="section-label">AUTO</span>
             </div>
             <label className="switch">
               <input 
@@ -101,11 +102,18 @@ export default function MixMaster({
               <span className="slider-toggle"></span>
             </label>
           </div>
-          <EqOrderPills
-            eqOrder={eqOrder}
-            onOrderChange={onEqOrderChange}
-            disabled={!autoDj}
-          />
+          <div className="eq-order-and-alert-column">
+            <EqOrderPills
+              eqOrder={eqOrder}
+              onOrderChange={onEqOrderChange}
+              disabled={!autoDj}
+            />
+            {transitionState.active && (
+              <div className={`autodj-transition-alert alert-phase-${transitionState.phase}`}>
+                ¡MEZCLA EN CURSO! ({transitionState.phase.toUpperCase()})
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -141,6 +149,25 @@ export default function MixMaster({
         <div className="mix-master-harmony-container">
           <div className="harmony-header-group">
             <span className="section-label section-label-harmony">CLAVES COMPATIBLES</span>
+            <div className="info-tooltip-container">
+              <Info size={13} className="harmony-info-icon" />
+              <div className="harmony-tooltip-content">
+                <span className="tooltip-title">Guía Armónica (Regla de Mezcla)</span>
+                <p>Para transiciones fluidas sin disonancia armónica, mezcla canciones cuya clave sea:</p>
+                <div className="tooltip-guide-item">
+                  <div className="tooltip-dot dot-same"></div>
+                  <span>Misma tonalidad (ej. 8A ➔ 8A)</span>
+                </div>
+                <div className="tooltip-guide-item">
+                  <div className="tooltip-dot dot-adjacent"></div>
+                  <span>Código contiguo en la rueda (ej. 8A ➔ 9A o 7A)</span>
+                </div>
+                <div className="tooltip-guide-item">
+                  <div className="tooltip-dot dot-relative"></div>
+                  <span>Cambio de escala Relativa Mayor/Menor (ej. 8A ➔ 8B)</span>
+                </div>
+              </div>
+            </div>
           </div>
           {activeTrack ? (
             <div className="harmony-grid-layout">
