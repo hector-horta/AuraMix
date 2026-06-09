@@ -2,7 +2,6 @@ import React from 'react'
 import { Play, Pause, SkipForward, Disc } from 'lucide-react'
 import Waveform from './Waveform'
 import { formatTime } from '../utils/formatTime'
-import { GENRE_COLORS, GENRE_EMOJIS } from '../utils/audioAnalyzer'
 import './Deck.css'
 
 export default function Deck({
@@ -83,27 +82,6 @@ export default function Deck({
             <div className="track-info">
               <h3 className="track-title">{deck.track.title}</h3>
               <p className="track-artist">{deck.track.artist}</p>
-              {djMode === 'jukebox' && deck.track.genre && (
-                <span 
-                  className="deck-genre-badge"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.2rem',
-                    fontSize: '0.7rem',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '4px',
-                    border: `1px solid ${GENRE_COLORS[deck.track.genre] || '#fff'}`,
-                    color: GENRE_COLORS[deck.track.genre] || '#fff',
-                    background: 'rgba(0,0,0,0.3)',
-                    marginTop: '0.3rem',
-                    boxShadow: `0 0 8px ${GENRE_COLORS[deck.track.genre]}44`,
-                    width: 'fit-content'
-                  }}
-                >
-                  {GENRE_EMOJIS[deck.track.genre] || '🎵'} {deck.track.genre}
-                </span>
-              )}
             </div>
 
             <Waveform

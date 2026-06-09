@@ -17,7 +17,6 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
   - [4. Outro Detection](#4-outro-detection)
   - [5. Harmonic Compatibility (Camelot Wheel)](#5-harmonic-compatibility-camelot-wheel)
   - [6. Tempo/BPM Compatibility](#6-tempobpm-compatibility)
-  - [7. Music Style / Genre Detection](#7-music-style--genre-detection)
 - [Auto-DJ Transition Engine](#-auto-dj-transition-engine)
   - [Tempo Matching (Pitch Matching)](#tempo-matching-pitch-matching)
   - [Rhythmic Alignment (Beat Grid Alignment)](#rhythmic-alignment-beat-grid-alignment)
@@ -34,9 +33,6 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Dual Players (Decks A & B):** Independent playback controllers with real-time waveform visualization rendered on HTML5 `<canvas>`.
 *   **Local Audio Analysis:** Client-side decoding and analysis of user-uploaded files (100% private, zero server uploads).
 *   **Camelot Harmonic Analysis:** Analyzes musical key compatibility and renders a visual Camelot Wheel on the sidebar.
-*   **Music Style & Genre Detection:** Client-side Digital Signal Processing (DSP) analyses spectral centroid, bass energy ratio, and onset density to automatically classify songs into 12 music style profiles (e.g. Deep House, Tech House, Trance, Drum & Bass).
-*   **Neon Genre Profile Indicator:** A premium cyberpunk dashboard integrated into the Camelot Panel. It displays the 12 genre profiles and flickers/glows in the song's signature color to indicate the currently active track's genre.
-*   **Jukebox Mode Genre Badges:** In Jukebox mode, active decks render a glowing neon badge of the track's detected music style. Library files also display the detected style badge directly below the artist's name for easy navigation.
 *   **3-Way DJ Mode Selector:** Dynamic mode switcher with neon glow indicators in the MIX MASTER panel:
     *   **Manual (Auto-DJ Off):** The user has full manual control over volume faders, EQs, and playback. Automated transitions will not trigger at the Outro.
     *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts the selected transition algorithm (EQ Ramp or Bassline Swap). To keep the mixing flow active, a 10-second timer prep-loads the next compatible track into the stopped deck after each mix.
@@ -61,7 +57,6 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
     *   **Played Checkmark (`✓`):** Indicates a track has been played and won't be repeated by the Auto-DJ yet.
     *   **Fallback Warning (`!`):** Displayed on played tracks when the Auto-DJ has exhausted $\ge 75\%$ of the library, warning that these songs are now eligible to be repeated.
     *   **Transition Timing Match Clock Badge (Clock Icon):** Displays when the track's intro length matches the outro duration of the currently playing track (within ±5 seconds), highlighting structurally compatible transition opportunities.
-
 *   **Manual Override / User Priority Rule:** Auto-DJ respects user-selected tracks manually loaded onto an idle deck. It will never overwrite the human DJ's choice of song with an autoloaded track, ensuring manual overrides are preserved.
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
@@ -121,26 +116,6 @@ To ensure natural sound quality and prevent extreme pitch bending when mixing, t
 *   This ensures that the pitch fader adjustment (limited to the ±10% Pioneer standard) can lock the BPMs without causing unwanted vocal or instrumental distortion.
 *   Incompatible tracks are visually dimmed in the library list, indicating they are not recommended for automated or manual transitions.
 
-### 7. Music Style / Genre Detection
-To classify the musical style of each track, AuraMix performs client-side digital signal processing (DSP) to match tracks against 12 different music style profiles (defined in [`genreProfiles.js`](file:///d:/dev/AuraMix/src/constants/genreProfiles.js)):
-
-1.  **Feature Extraction:** Inside [`extractSpectralFeatures`](file:///d:/dev/AuraMix/src/utils/audioAnalyzer.js#L549-L665), key acoustic descriptors are extracted from the track:
-    *   **Spectral Centroid:** The spectral "center of gravity" of the audio signal, indicating the relative brightness of the track. It is computed using a Cooley-Tukey Radix-2 Fast Fourier Transform (FFT) over 8 Hann-windowed, 4096-sample windows taken from the middle (30% to 70%) of the song:
-        $$\text{Spectral Centroid} = \frac{\sum_{k} f_k \cdot M_k}{\sum_{k} M_k}$$
-        where $f_k$ is the frequency of bin $k$, and $M_k$ is the magnitude of the FFT bin.
-    *   **Bass Energy Ratio:** The ratio of sub-bass/bass frequency energy (below 250 Hz) compared to the overall spectral energy. High ratio indicates strong bass presence.
-    *   **Onset Density:** Rhythmic intensity calculated as onset attacks per second over a 30-second window (seconds 15 to 45). The envelope is generated using RMS in 20ms frames, followed by a first-order difference and Half-Wave Rectification (HWR) to detect volume increases. Onsets are detected using a dynamic threshold (15% of peak + absolute noise floor) and a minimum spacing of 100ms.
-2.  **Gaussian Similarity Scoring:** In [`classifyGenre`](file:///d:/dev/AuraMix/src/utils/audioAnalyzer.js#L670-L705), features are scored against profiles using a multivariate Gaussian model:
-    $$\text{Similarity}_i = \exp\left(-0.5 \left(\frac{x_i - \mu_i}{\sigma_i}\right)^2\right)$$
-    The classifier aggregates these values with the following weights to determine the best match:
-    *   **BPM Match:** 40% weight
-    *   **Spectral Centroid Match:** 25% weight
-    *   **Bass Energy Ratio Match:** 20% weight
-    *   **Onset Density Match:** 15% weight
-    
-    The highest-scoring profile dictates the classified genre, and the confidence level is returned as the highest similarity score multiplied by 100 (clamped between 10% and 100%).
-
----
 
 ## 🎛️ DJ Mode Transition Engine
 
@@ -271,11 +246,10 @@ AuraMix/
 │
 ├── src/
 │   ├── constants/
-│   │   ├── demoTracks.js   # Extracted array of DEMO_TRACKS
-│   │   └── genreProfiles.js # Definitions for 12 musical styles & colors
+│   │   └── demoTracks.js   # Extracted array of DEMO_TRACKS
 │   │
 │   ├── utils/
-│   │   ├── audioAnalyzer.js # DSP utility algorithms (BPM, FFT, Camelot, RMS, Genre)
+│   │   ├── audioAnalyzer.js # DSP utility algorithms (BPM, FFT, Camelot, RMS)
 │   │   └── formatTime.js    # Time formatting helper
 │   │
 │   ├── hooks/

@@ -4,7 +4,7 @@ import {
   Volume2, Disc, Check, AlertCircle, Trash2, FolderOpen, RefreshCw 
 } from 'lucide-react'
 import { 
-  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible, detectGenre 
+  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible 
 } from './utils/audioAnalyzer'
 import { DEMO_TRACKS } from './constants/demoTracks'
 import { formatTime } from './utils/formatTime'
@@ -94,9 +94,6 @@ export default function App() {
         setAnalyzingProgress("Detectando punto de entrada (Intro)...");
         const introTime = detectIntro(decodedBuffer, bpm);
 
-        setAnalyzingProgress("Detectando estilo musical...");
-        const genreData = detectGenre(decodedBuffer, bpm);
-
         const fullName = file.name.replace(/\.[^/.]+$/, ""); // Strip extension
         let artist = 'Artista Desconocido';
         let title = fullName;
@@ -125,9 +122,7 @@ export default function App() {
           firstBeatOffset: firstBeatOffset,
           duration: decodedBuffer.duration,
           buffer: decodedBuffer,
-          isDemo: false,
-          genre: genreData.genre,
-          genreConfidence: genreData.confidence
+          isDemo: false
         };
 
         setLibrary(prev => [newTrack, ...prev]);
@@ -168,9 +163,6 @@ export default function App() {
       setAnalyzingProgress("Analizando intro...");
       const introTime = detectIntro(decodedBuffer, bpm);
 
-      setAnalyzingProgress("Detectando estilo musical...");
-      const genreData = detectGenre(decodedBuffer, bpm);
-
       const analyzedTrack = {
         ...demoTrack,
         bpm: demoTrack.bpm !== undefined ? demoTrack.bpm : bpm,
@@ -180,9 +172,7 @@ export default function App() {
         intro: demoTrack.intro !== undefined ? demoTrack.intro : introTime,
         firstBeatOffset: demoTrack.firstBeatOffset !== undefined ? demoTrack.firstBeatOffset : firstBeatOffset,
         duration: decodedBuffer.duration,
-        buffer: decodedBuffer,
-        genre: demoTrack.genre !== undefined ? demoTrack.genre : genreData.genre,
-        genreConfidence: demoTrack.genreConfidence !== undefined ? demoTrack.genreConfidence : genreData.confidence
+        buffer: decodedBuffer
       };
 
       setLibrary(prev => {

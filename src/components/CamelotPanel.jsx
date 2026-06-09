@@ -1,6 +1,5 @@
 import React from 'react'
 import ActivityLog from './ActivityLog'
-import { GENRE_PROFILES } from '../utils/audioAnalyzer'
 import './CamelotPanel.css'
 
 export default function CamelotPanel({
@@ -9,7 +8,6 @@ export default function CamelotPanel({
   logs
 }) {
   const activeKey = activeTrack ? activeTrack.key : null;
-  const activeGenre = activeTrack ? activeTrack.genre : null;
 
   return (
     <section className="panel camelot-panel">
@@ -32,34 +30,9 @@ export default function CamelotPanel({
         )}
       </div>
 
-      {/* Estilos Musicales / Perfiles de Género */}
-      <div className="genre-profiles-section">
-        <span className="eq-knob-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Detector de Estilo Musical</span>
-        <div className="genre-profile-grid">
-          {GENRE_PROFILES.map((profile) => {
-            const isActive = activeGenre === profile.name;
-            return (
-              <div 
-                key={profile.name}
-                className={`genre-profile-card ${isActive ? 'active' : ''}`}
-                style={isActive ? {
-                  borderColor: profile.color,
-                  color: profile.color,
-                  boxShadow: `0 0 12px ${profile.color}55, inset 0 0 6px ${profile.color}22`,
-                  textShadow: `0 0 6px ${profile.color}bb`,
-                  opacity: 1
-                } : {}}
-              >
-                <span className="genre-profile-emoji">{profile.emoji}</span>
-                <span className="genre-profile-name">{profile.name}</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Activity Logger */}
       <ActivityLog logs={logs} />
     </section>
   )
 }
+
