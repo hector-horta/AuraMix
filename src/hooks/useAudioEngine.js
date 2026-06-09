@@ -29,7 +29,8 @@ export function useAudioEngine({ library, addLog }) {
   });
 
 
-  const [autoDj, setAutoDj] = useState(true);
+  const [djMode, setDjMode] = useState('autodj'); // 'manual', 'autodj', 'jukebox'
+  const autoDj = djMode !== 'manual';
   const [eqOrder, setEqOrder] = useState(['mid', 'low', 'high']);
   const [playedTrackIds, setPlayedTrackIds] = useState([]);
   const [activeDeckId, setActiveDeckId] = useState('A'); // 'A' or 'B'
@@ -447,7 +448,9 @@ export function useAudioEngine({ library, addLog }) {
     const nodesTo = nodesRef.current[toDeckId];
 
     const targetTrack = incomingTrack || (toDeckId === 'A' ? deckA.track : deckB.track);
-    const pitchOffset = targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0;
+    
+    // In Jukebox mode, the incoming track plays at its natural tempo (pitchOffset = 0)
+    const pitchOffset = djMode === 'jukebox' ? 0 : (targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0);
     
     nodesRef.current[toDeckId].pitch = pitchOffset;
     
@@ -463,17 +466,29 @@ export function useAudioEngine({ library, addLog }) {
       }
     }
     
-    addLog(`Alineando tempo: Sincronizando Deck ${toDeckId} a ${masterBpm} BPM (${pitchOffset > 0 ? '+' : ''}${pitchOffset.toFixed(2)}% de velocidad)`);
-
-    nodesTo.lowShelf.gain.value = -40;
-    nodesTo.midPeaking.gain.value = -40;
-    nodesTo.highShelf.gain.value = -40;
-
-    const targetEqUpdate = { low: -40, mid: -40, high: -40 };
-    if (toDeckId === 'A') {
-      setDeckA(prev => ({ ...prev, eq: targetEqUpdate }));
+    if (djMode === 'jukebox') {
+      addLog(`Alineando tempo (Modo Jukebox): Deck ${toDeckId} a velocidad original (${targetTrack?.bpm} BPM)`);
+      // Keep EQ filters flat (0dB)
+      nodesTo.lowShelf.gain.value = 0;
+      nodesTo.midPeaking.gain.value = 0;
+      nodesTo.highShelf.gain.value = 0;
+      const targetEqUpdate = { low: 0, mid: 0, high: 0 };
+      if (toDeckId === 'A') {
+        setDeckA(prev => ({ ...prev, eq: targetEqUpdate }));
+      } else {
+        setDeckB(prev => ({ ...prev, eq: targetEqUpdate }));
+      }
     } else {
-      setDeckB(prev => ({ ...prev, eq: targetEqUpdate }));
+      addLog(`Alineando tempo: Sincronizando Deck ${toDeckId} a ${masterBpm} BPM (${pitchOffset > 0 ? '+' : ''}${pitchOffset.toFixed(2)}% de velocidad)`);
+      nodesTo.lowShelf.gain.value = -40;
+      nodesTo.midPeaking.gain.value = -40;
+      nodesTo.highShelf.gain.value = -40;
+      const targetEqUpdate = { low: -40, mid: -40, high: -40 };
+      if (toDeckId === 'A') {
+        setDeckA(prev => ({ ...prev, eq: targetEqUpdate }));
+      } else {
+        setDeckB(prev => ({ ...prev, eq: targetEqUpdate }));
+      }
     }
 
     // --- BEAT GRID ALIGNMENT ---
@@ -539,10 +554,25 @@ export function useAudioEngine({ library, addLog }) {
     const t2 = t0 + 2 * phaseDuration;
     const t3 = t0 + 3 * phaseDuration;
 
-    nodesTo.gainNode.gain.setValueAtTime(1.0, t0);
-    nodesTo.gainNode.gain.setValueAtTime(1.0, t3);
-    nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t0);
-    nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t3);
+    if (djMode === 'jukebox') {
+      // Jukebox: Crossfade volumes
+      nodesTo.gainNode.gain.setValueAtTime(0.0, t0);
+      nodesTo.gainNode.gain.linearRampToValueAtTime(1.0, t3);
+      nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t0);
+      nodesFrom.gainNode.gain.linearRampToValueAtTime(0.0, t3);
+      
+      // Pitch ramp for outgoing track to match incoming track's BPM
+      if (nodesFrom.source && targetTrack) {
+        nodesFrom.source.playbackRate.setValueAtTime(playbackRateFrom, t0);
+        nodesFrom.source.playbackRate.linearRampToValueAtTime(targetTrack.bpm / fromBpm, t3);
+      }
+    } else {
+      // Standard Auto-DJ: Constant volume transition
+      nodesTo.gainNode.gain.setValueAtTime(1.0, t0);
+      nodesTo.gainNode.gain.setValueAtTime(1.0, t3);
+      nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t0);
+      nodesFrom.gainNode.gain.setValueAtTime(fromDeckVolume, t3);
+    }
 
     if (toDeckId === 'A') {
       setDeckA(prev => ({ ...prev, volume: 1.0 }));
@@ -557,39 +587,41 @@ export function useAudioEngine({ library, addLog }) {
       high: 'highShelf'
     };
 
-    // Schedule EQs dynamically for each of the 3 phases
-    for (let p = 0; p < 3; p++) {
-      const startTimePhase = times[p];
-      const endTimePhase = times[p + 1];
+    if (djMode !== 'jukebox') {
+      // Schedule EQs dynamically for each of the 3 phases
+      for (let p = 0; p < 3; p++) {
+        const startTimePhase = times[p];
+        const endTimePhase = times[p + 1];
 
-      eqOrder.forEach((band, j) => {
-        const nodeFrom = nodesFrom[BAND_NODES[band]];
-        const nodeTo = nodesTo[BAND_NODES[band]];
-        const initialVal = fromDeckId === 'A' ? deckA.eq[band] : deckB.eq[band];
+        eqOrder.forEach((band, j) => {
+          const nodeFrom = nodesFrom[BAND_NODES[band]];
+          const nodeTo = nodesTo[BAND_NODES[band]];
+          const initialVal = fromDeckId === 'A' ? deckA.eq[band] : deckB.eq[band];
 
-        if (j === p) {
-          // This band swaps in this phase
-          nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
-          nodeFrom.gain.linearRampToValueAtTime(-40, endTimePhase);
-          
-          nodeTo.gain.setValueAtTime(-40, startTimePhase);
-          nodeTo.gain.linearRampToValueAtTime(0, endTimePhase);
-        } else if (j < p) {
-          // Already swapped, stays at swapped values
-          nodeFrom.gain.setValueAtTime(-40, startTimePhase);
-          nodeFrom.gain.setValueAtTime(-40, endTimePhase);
-          
-          nodeTo.gain.setValueAtTime(0, startTimePhase);
-          nodeTo.gain.setValueAtTime(0, endTimePhase);
-        } else {
-          // Not yet swapped, stays at initial values
-          nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
-          nodeFrom.gain.setValueAtTime(initialVal, endTimePhase);
-          
-          nodeTo.gain.setValueAtTime(-40, startTimePhase);
-          nodeTo.gain.setValueAtTime(-40, endTimePhase);
-        }
-      });
+          if (j === p) {
+            // This band swaps in this phase
+            nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
+            nodeFrom.gain.linearRampToValueAtTime(-40, endTimePhase);
+            
+            nodeTo.gain.setValueAtTime(-40, startTimePhase);
+            nodeTo.gain.linearRampToValueAtTime(0, endTimePhase);
+          } else if (j < p) {
+            // Already swapped, stays at swapped values
+            nodeFrom.gain.setValueAtTime(-40, startTimePhase);
+            nodeFrom.gain.setValueAtTime(-40, endTimePhase);
+            
+            nodeTo.gain.setValueAtTime(0, startTimePhase);
+            nodeTo.gain.setValueAtTime(0, endTimePhase);
+          } else {
+            // Not yet swapped, stays at initial values
+            nodeFrom.gain.setValueAtTime(initialVal, startTimePhase);
+            nodeFrom.gain.setValueAtTime(initialVal, endTimePhase);
+            
+            nodeTo.gain.setValueAtTime(-40, startTimePhase);
+            nodeTo.gain.setValueAtTime(-40, endTimePhase);
+          }
+        });
+      }
     }
 
     const bandDetails = {
@@ -598,65 +630,127 @@ export function useAudioEngine({ library, addLog }) {
       high: { phase: 'highs', msg: "Mezclando frecuencias altas (Hats/Groove)..." }
     };
 
-    setTimeout(() => {
-      const b = eqOrder[0];
-      setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 15 }));
-      addLog(`Transición [1/3]: ${bandDetails[b].msg}`);
-    }, delay * 1000);
+    if (djMode === 'jukebox') {
+      setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, phase: 'crossfade', progress: 10 }));
+        addLog(`Transición Jukebox: Iniciando Crossfade y rampa de tempo hacia ${targetTrack?.bpm} BPM...`);
+      }, delay * 1000);
 
-    setTimeout(() => {
-      const b = eqOrder[1];
-      setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 50 }));
-      addLog(`Transición [2/3]: ${bandDetails[b].msg}`);
-    }, (delay + phaseDuration) * 1000);
+      setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, progress: 50 }));
+      }, (delay + transitionDuration / 2) * 1000);
 
-    setTimeout(() => {
-      const b = eqOrder[2];
-      setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 85 }));
-      addLog(`Transición [3/3]: ${bandDetails[b].msg}`);
-    }, (delay + 2 * phaseDuration) * 1000);
+      setTimeout(() => {
+        setTransitionState(prev => ({ ...prev, progress: 90 }));
+      }, (delay + transitionDuration * 0.9) * 1000);
 
-    setTimeout(() => {
-      setTransitionState({ active: false, phase: 'idle', progress: 0 });
-      transitionActiveRef.current = false;
-      setActiveDeckId(toDeckId);
-      
-      stopDeckSource(fromDeckId);
-      if (fromDeckId === 'A') {
-        setDeckA(prev => ({
-          ...prev,
-          isPlaying: false,
-          currentTime: 0,
-          eq: { low: 0, mid: 0, high: 0 },
-          volume: 1.0
-        }));
-        nodesFrom.lowShelf.gain.value = 0;
-        nodesFrom.midPeaking.gain.value = 0;
-        nodesFrom.highShelf.gain.value = 0;
-        nodesFrom.gainNode.gain.value = 1.0;
-      } else {
-        setDeckB(prev => ({
-          ...prev,
-          isPlaying: false,
-          currentTime: 0,
-          eq: { low: 0, mid: 0, high: 0 },
-          volume: 1.0
-        }));
-        nodesFrom.lowShelf.gain.value = 0;
-        nodesFrom.midPeaking.gain.value = 0;
-        nodesFrom.highShelf.gain.value = 0;
-        nodesFrom.gainNode.gain.value = 1.0;
-      }
+      setTimeout(() => {
+        setTransitionState({ active: false, phase: 'idle', progress: 0 });
+        transitionActiveRef.current = false;
+        setActiveDeckId(toDeckId);
+        
+        stopDeckSource(fromDeckId);
+        if (fromDeckId === 'A') {
+          setDeckA(prev => ({
+            ...prev,
+            isPlaying: false,
+            currentTime: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            volume: 1.0
+          }));
+          nodesFrom.lowShelf.gain.value = 0;
+          nodesFrom.midPeaking.gain.value = 0;
+          nodesFrom.highShelf.gain.value = 0;
+          nodesFrom.gainNode.gain.value = 1.0;
+        } else {
+          setDeckB(prev => ({
+            ...prev,
+            isPlaying: false,
+            currentTime: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            volume: 1.0
+          }));
+          nodesFrom.lowShelf.gain.value = 0;
+          nodesFrom.midPeaking.gain.value = 0;
+          nodesFrom.highShelf.gain.value = 0;
+          nodesFrom.gainNode.gain.value = 1.0;
+        }
 
-      const defaultEq = { low: 0, mid: 0, high: 0 };
-      if (toDeckId === 'A') {
-        setDeckA(prev => ({ ...prev, eq: defaultEq }));
-      } else {
-        setDeckB(prev => ({ ...prev, eq: defaultEq }));
-      }
+        // Set EQs to flat
+        const defaultEq = { low: 0, mid: 0, high: 0 };
+        if (toDeckId === 'A') {
+          setDeckA(prev => ({ ...prev, eq: defaultEq }));
+        } else {
+          setDeckB(prev => ({ ...prev, eq: defaultEq }));
+        }
 
-      addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
-    }, (delay + 3 * phaseDuration) * 1000);
+        // Update Master BPM to match the new track
+        if (targetTrack) {
+          changeMasterBpm(targetTrack.bpm);
+        }
+        addLog(`¡Mezcla Jukebox completada! Deck ${toDeckId} ahora en vivo a ${targetTrack?.bpm} BPM.`);
+      }, (delay + transitionDuration) * 1000);
+    } else {
+      setTimeout(() => {
+        const b = eqOrder[0];
+        setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 15 }));
+        addLog(`Transición [1/3]: ${bandDetails[b].msg}`);
+      }, delay * 1000);
+
+      setTimeout(() => {
+        const b = eqOrder[1];
+        setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 50 }));
+        addLog(`Transición [2/3]: ${bandDetails[b].msg}`);
+      }, (delay + phaseDuration) * 1000);
+
+      setTimeout(() => {
+        const b = eqOrder[2];
+        setTransitionState(prev => ({ ...prev, phase: bandDetails[b].phase, progress: 85 }));
+        addLog(`Transición [3/3]: ${bandDetails[b].msg}`);
+      }, (delay + 2 * phaseDuration) * 1000);
+
+      setTimeout(() => {
+        setTransitionState({ active: false, phase: 'idle', progress: 0 });
+        transitionActiveRef.current = false;
+        setActiveDeckId(toDeckId);
+        
+        stopDeckSource(fromDeckId);
+        if (fromDeckId === 'A') {
+          setDeckA(prev => ({
+            ...prev,
+            isPlaying: false,
+            currentTime: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            volume: 1.0
+          }));
+          nodesFrom.lowShelf.gain.value = 0;
+          nodesFrom.midPeaking.gain.value = 0;
+          nodesFrom.highShelf.gain.value = 0;
+          nodesFrom.gainNode.gain.value = 1.0;
+        } else {
+          setDeckB(prev => ({
+            ...prev,
+            isPlaying: false,
+            currentTime: 0,
+            eq: { low: 0, mid: 0, high: 0 },
+            volume: 1.0
+          }));
+          nodesFrom.lowShelf.gain.value = 0;
+          nodesFrom.midPeaking.gain.value = 0;
+          nodesFrom.highShelf.gain.value = 0;
+          nodesFrom.gainNode.gain.value = 1.0;
+        }
+
+        const defaultEq = { low: 0, mid: 0, high: 0 };
+        if (toDeckId === 'A') {
+          setDeckA(prev => ({ ...prev, eq: defaultEq }));
+        } else {
+          setDeckB(prev => ({ ...prev, eq: defaultEq }));
+        }
+
+        addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
+      }, (delay + 3 * phaseDuration) * 1000);
+    }
   };
 
   const checkAutoDjTransition = (playingDeckId, currentTime) => {
@@ -1175,7 +1269,8 @@ export function useAudioEngine({ library, addLog }) {
     handleEqChange,
     handleVolumeChange,
     changeMasterBpm,
-    setAutoDj,
+    djMode,
+    setDjMode,
     autoDj,
     eqOrder,
     setEqOrder,

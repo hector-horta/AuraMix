@@ -8,8 +8,8 @@ export default function MixMaster({
   masterBpm,
   onChangeMasterBpm,
   library,
-  autoDj,
-  onAutoDjToggle,
+  djMode,
+  onDjModeChange,
   eqOrder,
   onEqOrderChange,
   sessionElapsedTime,
@@ -137,23 +137,41 @@ export default function MixMaster({
         <div className="mix-master-autodj-container">
           <div className="autodj-switch-wrapper">
             <div className="autodj-header-group">
-              <Disc className={`mix-master-icon ${autoDj ? 'autodj-icon-spinning' : ''}`} size={16} />
-              <span className="section-label">AUTO</span>
+              <Disc className={`mix-master-icon ${djMode !== 'manual' ? 'autodj-icon-spinning' : ''}`} size={16} />
+              <span className="section-label">MODO DE DJ</span>
             </div>
-            <label className="switch">
-              <input 
-                type="checkbox" 
-                checked={autoDj} 
-                onChange={onAutoDjToggle}
-              />
-              <span className="slider-toggle"></span>
-            </label>
+            
+            {/* 3-way sliding selector */}
+            <div className="autodj-mode-selector">
+              <button 
+                className={`mode-btn ${djMode === 'manual' ? 'active' : ''}`}
+                onClick={() => onDjModeChange('manual')}
+                title="Modo Manual: Control total sobre volumen y EQs"
+              >
+                Manual
+              </button>
+              <button 
+                className={`mode-btn ${djMode === 'autodj' ? 'active' : ''}`}
+                onClick={() => onDjModeChange('autodj')}
+                title="Auto-DJ: Mezcla automática inteligente con transición EQ de 3 fases"
+              >
+                AutoDJ
+              </button>
+              <button 
+                className={`mode-btn ${djMode === 'jukebox' ? 'active' : ''}`}
+                onClick={() => onDjModeChange('jukebox')}
+                title="Modo Jukebox: Estación de radio con crossfade de volumen y rampa de tempo"
+              >
+                Jukebox
+              </button>
+              <div className={`mode-slider slide-${djMode}`} />
+            </div>
           </div>
           <div className="eq-order-and-alert-column">
             <EqOrderPills
               eqOrder={eqOrder}
               onOrderChange={onEqOrderChange}
-              disabled={!autoDj}
+              disabled={djMode !== 'autodj'}
             />
             <div className={`autodj-transition-alert ${getAlertClass()}`}>
               {neonAnim === 'inactive' ? (

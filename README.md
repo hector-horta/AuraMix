@@ -32,14 +32,17 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Dual Players (Decks A & B):** Independent playback controllers with real-time waveform visualization rendered on HTML5 `<canvas>`.
 *   **Local Audio Analysis:** Client-side decoding and analysis of user-uploaded files (100% private, zero server uploads).
 *   **Camelot Harmonic Analysis:** Analyzes musical key compatibility and renders a visual Camelot Wheel on the sidebar.
-*   **Intelligent Auto-DJ Engine:** Monitors the playing deck and, upon reaching the Outro point, loads a compatible track from the library into the free deck, syncs its BPM, performs high-precision beatmatching phase alignment, and triggers the transition.
+*   **3-Way DJ Mode Selector:** Dynamic mode switcher with neon glow indicators in the MIX MASTER panel:
+    *   **Manual (Auto-DJ Off):** The user has full manual control over volume faders, EQs, and playback. Automated transitions will not trigger at the Outro.
+    *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts a 3-phase EQ-swapping transition (Lows, Mids, Highs) based on the user-selected EQ precedence sequence.
+    *   **Jukebox (Radio Station):** Radio-like crossfade transition. The tempo of the outgoing track ramps dynamically to match the incoming track's native tempo, EQs remain flat at 0dB, and the Master BPM updates to the incoming track's native BPM on transition completion.
 *   **Complete Manual Mixer:**
     *   Three-band rotary EQs per channel (Lows, Mids, Highs).
     *   High-resolution pitch/speed faders with a range of ±10% (matching Pioneer CDJ industry standard).
     *   Channel volume faders aligned vertically next to EQs for direct channel mixing.
     *   Master BPM selector (defaulting to 128 BPM) that automatically locks loaded track speeds.
     *   **Phase & BPM SYNC Controls:** A central sync button between the decks to align beat phases ($\theta$ compás alignment) and BPMs in real-time, resolving any phase drift.
-*   **Draggable EQ Precedence Pills:** Dynamic 3-phase transition reordering. Choose which frequency band (LOWS, MIDS, HIGHS) is mixed 1st, 2nd, and 3rd using native drag-and-drop.
+*   **Draggable EQ Precedence Pills:** Dynamic 3-phase transition reordering. Choose which frequency band (LOWS, MIDS, HIGHS) is mixed 1st, 2nd, and 3rd using native drag-and-drop. Disabled when not in Auto-DJ mode.
 *   **Audio-Rhythmic Pulsating Glow:** Decks pulse and glow in sync with the beat of the song using a cubic decay algorithm, providing direct visual feedback for beatmatching.
 *   **Intelligent Track Indicators & Badges:** Displays dynamic state badges next to songs in the library list:
     *   **Played Checkmark (`✓`):** Indicates a track has been played and won't be repeated by the Auto-DJ yet.
@@ -106,14 +109,17 @@ To ensure natural sound quality and prevent extreme pitch bending when mixing, t
 
 ---
 
-## 🎛️ Auto-DJ Transition Engine
+## 🎛️ DJ Mode Transition Engine
 
-When the playing deck reaches the Outro point of the current track, it triggers the automated mixing sequence in the background. The core scheduling logic is managed by [`triggerAutomatedTransition`](file:///d:/dev/AuraMix/src/hooks/useAudioEngine.js#L218-L439):
+When the playing deck reaches the Outro point of the current track, if the mode is not **Manual**, it triggers the automated mixing sequence in the background. The core scheduling logic is managed by [`triggerAutomatedTransition`](file:///d:/dev/AuraMix/src/hooks/useAudioEngine.js#L434-L754):
 
 ### Tempo Matching (Pitch Matching)
-The engine reads the original BPM of the playing track (`fromBpm`) and the incoming track (`toBpm`). It calculates the speed adjustment ratio to align them to the global Master BPM:
-$$\text{pitchOffset} = \frac{\text{MasterBPM} - \text{toBpm}}{\text{toBpm}} \times 100$$
-This percentage is applied to the incoming deck's pitch fader and assigned directly to the audio node: `source.playbackRate.value = 1 + (pitchOffset / 100)`.
+*   **Auto-DJ Mode:** The engine reads the original BPM of the playing track (`fromBpm`) and the incoming track (`toBpm`). It calculates the speed adjustment ratio to align them to the global Master BPM:
+    $$\text{pitchOffset} = \frac{\text{MasterBPM} - \text{toBpm}}{\text{toBpm}} \times 100$$
+    This percentage is applied to the incoming deck's pitch fader and assigned directly to the audio node: `source.playbackRate.value = 1 + (pitchOffset / 100)`.
+*   **Jukebox Mode:** The incoming track plays at its natural tempo (`pitchOffset` = 0). The outgoing track's playback rate is progressively ramped from its active playback rate to match the incoming track's native tempo:
+    $$\text{targetPlaybackRate} = \frac{\text{incomingTrack.bpm}}{\text{outgoingTrack.bpm}}$$
+    This is automated via Web Audio AudioParam linear ramps over the transition duration: `source.playbackRate.linearRampToValueAtTime(targetPlaybackRate, t3)`.
 
 ### Rhythmic Alignment (Beat Grid Alignment)
 To prevent clashing drumbeats (known as "trainwrecking"):
@@ -123,14 +129,17 @@ To prevent clashing drumbeats (known as "trainwrecking"):
 4.  Calculates the delay to align the incoming deck's first beat with the next beat of the active deck: `delay = beatDuration - beatOffset`.
 5.  Schedules a synchronized start: `source.start(AudioContext.currentTime + delay)`.
 
-### 3-Phase EQ & Volume Transition
-Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the transition duration (calculated dynamically as the minimum between the outgoing track's remaining outro duration and the incoming track's intro duration). This ensures that the transition fits perfectly within the musical boundaries of both tracks. The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
+### Transition Mixing
+The mixing phase varies based on the active DJ Mode:
+
+#### 1. Auto-DJ: 3-Phase EQ & Volume Transition
+Once the incoming deck starts in phase, the mixer executes a gradual 3-stage automated EQ transition over the transition duration (calculated dynamically as the minimum between the outgoing track's remaining outro duration and the incoming track's intro duration). The order of the EQ band mixing is fully customizable dynamically via the draggable EQ precedence pills. Throughout this process, total volume levels are maintained to ensure mixing momentum is not lost:
 
 ```mermaid
 graph TD
-    A[Outro Reached] --> B["Phase 1 (User Defined)"]
-    B --> C["Phase 2 (User Defined)"]
-    C --> D["Phase 3 (User Defined)"]
+    A[Outro Reached] --> B["Phase 1 (User Defined EQ Swap)"]
+    B --> C["Phase 2 (User Defined EQ Swap)"]
+    C --> D["Phase 3 (User Defined EQ Swap)"]
     D --> E[Transition Done: Reset Outgoing Deck]
 ```
 
@@ -140,6 +149,20 @@ graph TD
     *   **Lows Swap (`LOWS`):** Kick drum and bassline crossover. The incoming deck's bass rises from -40dB to 0dB, while the outgoing deck's bass drops to -40dB.
     *   **Highs Swap (`HIGHS`):** Hi-hats, percussions, and groove crossover. The incoming deck's treble rises from -40dB to 0dB, while the outgoing deck's treble drops to -40dB.
 *   **Completion:** The outgoing deck is stopped, its EQs and volumes are reset to defaults, and the crossfader is centered on the new active deck.
+
+#### 2. Jukebox: Volume Crossfade & Tempo Ramp
+Jukebox mode performs a traditional radio station crossfade combined with a dynamic pitch ramp:
+
+```mermaid
+graph TD
+    A[Outro Reached] --> B["Volume Crossfade (GainNode ramp) + Tempo Ramp (playbackRate ramp)"]
+    B --> C[Transition Done: Update Master BPM & Reset Outgoing Deck]
+```
+
+*   **EQs Flat:** Channel EQ filters for both tracks remain flat at `0dB` during the transition.
+*   **Volume Crossfade:** The outgoing deck volume is linearly ramped from its active volume level to `0.0` using Web Audio `gainNode.gain.linearRampToValueAtTime(0.0, t3)`. Simultaneously, the incoming deck volume is linearly ramped from `0.0` to `1.0`.
+*   **Tempo Ramp:** The playback rate of the outgoing deck is linearly ramped to match the incoming track's native tempo.
+*   **Completion:** The outgoing deck is stopped and reset. The global Master BPM is updated to match the incoming track's native BPM.
 
 ---
 
@@ -224,9 +247,9 @@ AuraMix/
     *   Drag and drop your own DRM-free audio files (MP3, WAV, M4A, etc.) into the **"Arrastra archivos MP3 o haz clic"** drop zone. The analyzer will take a few seconds to extract tempo and key data.
 2.  **Load Tracks to Decks:**
     *   Click the **"Deck A"** or **"Deck B"** buttons next to a track in the library to load it into the respective deck.
-3.  **Toggle Auto-DJ:**
-    *   Enable **"Auto-DJ Inteligente"** on the right sidebar.
-    *   If active, the system automatically schedules and performs transitions upon reaching the Outro point. If disabled, you can manually trigger transitions, mix track volumes, and play with the EQs.
+3.  **Select DJ Mode:**
+    *   Use the sliding selector in the **MIX MASTER** panel to choose between **Manual**, **Auto-DJ**, or **Jukebox** modes.
+    *   If **Auto-DJ** or **Jukebox** is selected, the system automatically schedules and performs the corresponding transition upon reaching the Outro point. If **Manual** is selected, you mix manually, but can still trigger a transition using the **Test Outro** button.
 4.  **Fast-Track Mixing (Test Outro):**
     *   To test a transition without waiting for the whole track to finish, click the **"Test Outro"** button on the playing deck. This jumps the playback time to 5 seconds before the Outro marker, allowing you to instantly preview the beatmatched transition.
 5.  **Manual Control:**

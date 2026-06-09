@@ -152,51 +152,89 @@
   filter: drop-shadow(0 0 5px rgba(255, 0, 127, 0.4));
 }
 
-/* Switch Styles */
-.switch {
+/* 3-way Sliding Mode Selector Styles */
+.autodj-mode-selector {
   position: relative;
-  display: inline-block;
-  width: 38px;
-  height: 20px;
+  display: flex;
+  width: 240px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2px;
+  user-select: none;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider-toggle {
-  position: absolute;
+.mode-btn {
+  position: relative;
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--text-dark);
-  transition: .3s;
-  border-radius: 20px;
+  z-index: 2;
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.slider-toggle:before {
+.mode-btn:hover {
+  color: var(--text-main);
+}
+
+.mode-btn.active {
+  color: var(--text-main);
+}
+
+/* Make text dark on bright neon active backgrounds for readability */
+.autodj-mode-selector:has(.slide-autodj) .mode-btn.active,
+.autodj-mode-selector:has(.slide-jukebox) .mode-btn.active {
+  color: rgba(0, 0, 0, 0.95);
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.mode-slider {
   position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
-  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  bottom: 2px;
+  width: calc(33.333% - 2px);
+  border-radius: 14px;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-input:checked + .slider-toggle {
-  background-color: var(--neon-pink);
-  box-shadow: 0 0 8px rgba(255, 0, 127, 0.4);
+/* Slide Positions */
+.mode-slider.slide-manual {
+  transform: translateX(0);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
-input:checked + .slider-toggle:before {
-  transform: translateX(18px);
+.mode-slider.slide-autodj {
+  transform: translateX(100%);
+  background: var(--neon-pink);
+  box-shadow: 0 0 10px rgba(255, 0, 127, 0.6),
+              inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.mode-slider.slide-jukebox {
+  transform: translateX(200%);
+  background: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.6),
+              inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 
 /* Playlist Stats Section */

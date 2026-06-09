@@ -42,7 +42,8 @@ export default function App() {
     handleEqChange,
     handleVolumeChange,
     changeMasterBpm,
-    setAutoDj,
+    djMode,
+    setDjMode,
     autoDj,
     eqOrder,
     setEqOrder,
@@ -232,8 +233,8 @@ export default function App() {
             masterBpm={masterBpm}
             onChangeMasterBpm={changeMasterBpm}
             library={library}
-            autoDj={autoDj}
-            onAutoDjToggle={(e) => setAutoDj(e.target.checked)}
+            djMode={djMode}
+            onDjModeChange={setDjMode}
             eqOrder={eqOrder}
             onEqOrderChange={setEqOrder}
             sessionElapsedTime={sessionElapsedTime}
