@@ -27,8 +27,14 @@ export default function TrackInfo({
   const isLoadedOnA = deckA.track?.id === track.id;
   const isLoadedOnB = deckB.track?.id === track.id;
   const isCurrentTrack = activeTrack?.id === track.id;
-  const isIncompatible = activeTrack && !isCurrentTrack && !(isCompatBpm && isCompatKey);
-  const isCompatible = activeTrack && !isCurrentTrack && isCompatBpm && isCompatKey;
+  
+  // Actual compatibility calculation (used for badges next to delete button)
+  const isActuallyIncompatible = activeTrack && !isCurrentTrack && !(isCompatBpm && isCompatKey);
+  const isActuallyCompatible = activeTrack && !isCurrentTrack && isCompatBpm && isCompatKey;
+
+  // Visual classes showing compatibility status (lights up all as compatible in manual mode)
+  const isIncompatible = djMode === 'manual' ? false : isActuallyIncompatible;
+  const isCompatible = djMode === 'manual' ? (activeTrack && !isCurrentTrack) : isActuallyCompatible;
 
   const playedRatio = libraryLength > 0 ? playedTrackIds.length / libraryLength : 0;
 
@@ -76,7 +82,7 @@ export default function TrackInfo({
               <span className="played-checkmark-badge" title="Esta canción ya ha sido reproducida en la sesión">✓</span>
             )
           )}
-          {isIncompatible && (
+          {isActuallyIncompatible && (
             <span className="badge-incompatible" title="Incompatible con la canción en reproducción (BPM o Tono diferente)">✗</span>
           )}
         </div>
