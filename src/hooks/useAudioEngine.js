@@ -342,15 +342,13 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
     const targetTrack = incomingTrack || targetDeck.track;
     
-    // Set incoming track pausedAt to cue point if not Jukebox, has a cue > 0, and not manually played
+    // Set incoming track pausedAt to cue point if not Jukebox
     const cuePoint = (currentDjMode !== 'jukebox' && targetTrack) ? (targetTrack.cue || 0) : 0;
-    if (cuePoint > 0 && nodesTo.pausedAt === 0) {
-      nodesTo.pausedAt = cuePoint;
-      if (toDeckId === 'A') {
-        setDeckA(prev => ({ ...prev, currentTime: cuePoint }));
-      } else {
-        setDeckB(prev => ({ ...prev, currentTime: cuePoint }));
-      }
+    nodesTo.pausedAt = cuePoint;
+    if (toDeckId === 'A') {
+      setDeckA(prev => ({ ...prev, currentTime: cuePoint }));
+    } else {
+      setDeckB(prev => ({ ...prev, currentTime: cuePoint }));
     }
     
     // In Jukebox mode, the incoming track plays at its natural tempo (pitchOffset = 0)
@@ -880,12 +878,18 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
       setDeck(prev => {
         if (!prev.track) return prev;
-        return {
-          ...prev,
+        const updates = {
           cueTime: validatedTime,
           track: { ...prev.track, cue: validatedTime }
         };
+        if (!prev.isPlaying) {
+          updates.currentTime = validatedTime;
+        }
+        return { ...prev, ...updates };
       });
+      if (!currentDeck.isPlaying) {
+        nodesRef.current[deckId].pausedAt = validatedTime;
+      }
       if (onUpdateTrackCuePoints) {
         onUpdateTrackCuePoints(trackId, undefined, undefined, validatedTime);
       }
