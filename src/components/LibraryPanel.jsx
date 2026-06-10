@@ -1,5 +1,5 @@
 import React from 'react'
-import { Upload, Music, RefreshCw } from 'lucide-react'
+import { Upload, Music, RefreshCw, Trash2 } from 'lucide-react'
 import TrackInfo from './TrackInfo'
 import './LibraryPanel.css'
 
@@ -15,19 +15,29 @@ export default function LibraryPanel({
   onFileUpload,
   onLoadTrack,
   onDeleteTrack,
+  onClearLibrary,
   djMode
 }) {
   return (
     <section className="panel library-panel">
       <div className="library-header">
         <h2 className="library-title">Selector</h2>
-        {library.length === 0 && (
+        {library.length === 0 ? (
           <button 
             onClick={onLoadDemos} 
             className="load-deck-btn load-deck-btn-a"
             style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
           >
             <RefreshCw size={12} /> Cargar Demos
+          </button>
+        ) : (
+          <button 
+            onClick={onClearLibrary} 
+            className="load-deck-btn load-deck-btn-b"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+            title="Quitar todas las canciones de la lista"
+          >
+            <Trash2 size={12} /> Limpiar Playlist
           </button>
         )}
       </div>

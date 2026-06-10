@@ -202,6 +202,12 @@ export default function App() {
     setLibrary(prev => prev.filter(t => t.id !== id));
   };
 
+  // Clear all tracks from library
+  const clearLibrary = () => {
+    setLibrary([]);
+    addLog("Biblioteca vaciada.");
+  };
+
   // --- ACTIVE KEY AND COMPATIBILITY CHECKS ---
   const activeTrack = activeDeckId === 'A' ? deckA.track : deckB.track;
 
@@ -228,6 +234,7 @@ export default function App() {
           onFileUpload={handleFileUpload}
           onLoadTrack={loadTrackIntoDeck}
           onDeleteTrack={deleteTrack}
+          onClearLibrary={clearLibrary}
           djMode={djMode}
         />
 
