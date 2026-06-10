@@ -75,15 +75,16 @@ export function createAutoloadScheduler(findFn, loadFn, addLog) {
       clearTimeout(timers[stoppedDeckId]);
     }
 
-    addLog(`Auto-DJ: Esperando 10 segundos para pre-cargar canción compatible en Deck ${stoppedDeckId}...`);
+    const modeLabel = djMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
+    addLog(`${modeLabel}: Esperando 10 segundos para pre-cargar canción compatible en Deck ${stoppedDeckId}...`);
 
     timers[stoppedDeckId] = setTimeout(() => {
       const compatibleTrack = findFn(currentActiveTrack);
       if (compatibleTrack) {
-        addLog(`Auto-DJ (10s): Cargando automáticamente tema preparado "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
+        addLog(`${modeLabel} (10s): Cargando automáticamente tema preparado "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
         loadFn(compatibleTrack, stoppedDeckId, false, true);
       } else {
-        addLog(`Auto-DJ (10s) Info: No se encontró tema compatible en la biblioteca para pre-cargar en Deck ${stoppedDeckId}.`);
+        addLog(`${modeLabel} (10s) Info: No se encontró tema compatible en la biblioteca para pre-cargar en Deck ${stoppedDeckId}.`);
       }
       timers[stoppedDeckId] = null;
     }, 10000);

@@ -100,6 +100,7 @@ export default function Deck({
               activeLoopBars={deck.activeLoopBars}
               loopStart={deck.loopStart}
               loopEnd={deck.loopEnd}
+              djMode={djMode}
             />
 
             <div className="time-display">

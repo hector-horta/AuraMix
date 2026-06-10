@@ -67,6 +67,27 @@ describe('calculateTransitionTiming', () => {
     expect(result.outroDuration).toBe(10); // clamped from 5 to 10
     expect(result.introDuration).toBe(10); // clamped from 3 to 10
   });
+
+  it('should calculate correct 15-second Jukebox transition duration', () => {
+    const result = calculateTransitionTiming(
+      /* deckDuration */ 300,
+      /* outroTime */ 240,
+      /* introTime */ 60,
+      /* highPrecisionTime */ 284.5,
+      /* delay */ 0.5,
+      /* startTime */ 100.5,
+      /* djMode */ 'jukebox'
+    );
+
+    expect(result.transitionDuration).toBe(15);
+    expect(result.phaseDuration).toBe(5);
+    expect(result.t0).toBe(100.5);
+    expect(result.t1).toBe(105.5);
+    expect(result.t2).toBe(110.5);
+    expect(result.t3).toBe(115.5);
+    expect(result.outroDuration).toBe(15);
+    expect(result.introDuration).toBe(15);
+  });
 });
 
 describe('calculateBeatAlignment', () => {

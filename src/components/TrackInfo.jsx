@@ -41,7 +41,7 @@ export default function TrackInfo({
 
   const outroDuration = activeTrack ? (activeTrack.duration - activeTrack.outro) : 0;
   const introDuration = track.intro || 16.0;
-  const isTimeMatch = activeTrack && !isCurrentTrack && (Math.abs(introDuration - outroDuration) <= 5);
+  const isTimeMatch = djMode !== 'jukebox' && activeTrack && !isCurrentTrack && (Math.abs(introDuration - outroDuration) <= 5);
 
   // Visual classes showing compatibility status (lights up all as compatible in manual mode)
   const isIncompatible = djMode === 'manual' ? false : isActuallyIncompatible;

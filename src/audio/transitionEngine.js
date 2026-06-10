@@ -68,12 +68,23 @@ export function calculateBeatAlignment(ctx, nodesFrom, fromTrack, pitchFrom, tar
  * @param {number} startTime - Calculated start time for the incoming deck.
  * @returns {{ transitionDuration: number, phaseDuration: number, t0: number, t1: number, t2: number, t3: number, remainingTime: number }}
  */
-export function calculateTransitionTiming(deckDuration, outroTime, introTime, highPrecisionTime, delay, startTime) {
+export function calculateTransitionTiming(deckDuration, outroTime, introTime, highPrecisionTime, delay, startTime, djMode = 'autodj') {
   const remainingTime = Math.max(2, deckDuration - (highPrecisionTime + delay));
-  const outroDuration = Math.max(10, deckDuration - outroTime);
-  const introDuration = Math.max(10, introTime);
-  const idealTransitionDuration = Math.min(outroDuration, introDuration);
-  const transitionDuration = Math.min(idealTransitionDuration, remainingTime);
+  let transitionDuration;
+  let outroDuration;
+  let introDuration;
+
+  if (djMode === 'jukebox') {
+    transitionDuration = Math.min(15, remainingTime);
+    outroDuration = 15;
+    introDuration = 15;
+  } else {
+    outroDuration = Math.max(10, deckDuration - outroTime);
+    introDuration = Math.max(10, introTime);
+    const idealTransitionDuration = Math.min(outroDuration, introDuration);
+    transitionDuration = Math.min(idealTransitionDuration, remainingTime);
+  }
+
   const phaseDuration = transitionDuration / 3;
 
   const t0 = startTime;

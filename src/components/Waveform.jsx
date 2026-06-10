@@ -17,7 +17,8 @@ export default function Waveform({
   onSeek,
   activeLoopBars,
   loopStart,
-  loopEnd
+  loopEnd,
+  djMode = 'autodj'
 }) {
   const canvasRef = useRef(null);
 
@@ -136,7 +137,7 @@ export default function Waveform({
   return (
     <div className="waveform-wrapper">
       {/* Cue time indicators outside the waveform */}
-      {duration > 0 && introTime > 0 && (
+      {djMode !== 'jukebox' && duration > 0 && introTime > 0 && (
         <span 
           className="waveform-cue-time-badge"
           style={{ left: `${introPercent}%` }}
@@ -144,7 +145,7 @@ export default function Waveform({
           {formatTime(introTime)}
         </span>
       )}
-      {duration > 0 && outroTime > 0 && (
+      {djMode !== 'jukebox' && duration > 0 && outroTime > 0 && (
         <span 
           className="waveform-cue-time-badge"
           style={{ left: `${outroPercent}%` }}
@@ -171,7 +172,7 @@ export default function Waveform({
         />
 
         {/* Intro Cue marker */}
-        {duration > 0 && introTime > 0 && (
+        {djMode !== 'jukebox' && duration > 0 && introTime > 0 && (
           <>
             <div 
               className="intro-marker" 
@@ -187,7 +188,7 @@ export default function Waveform({
         )}
 
         {/* Outro Cue marker */}
-        {duration > 0 && outroTime > 0 && (
+        {djMode !== 'jukebox' && duration > 0 && outroTime > 0 && (
           <>
             <div 
               className="outro-marker" 

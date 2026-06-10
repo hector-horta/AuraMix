@@ -351,7 +351,7 @@ export function useAudioEngine({ library, addLog }) {
     const fromDeckVolume = fromDeckId === 'A' ? deckA.volume : deckB.volume;
 
     const timing = calculateTransitionTiming(
-      currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime
+      currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime, djMode
     );
 
     const { transitionDuration, phaseDuration, t0, t1, t2, t3 } = timing;
@@ -488,23 +488,41 @@ export function useAudioEngine({ library, addLog }) {
     const targetDeckId = playingDeckId === 'A' ? 'B' : 'A';
     const targetDeck = targetDeckId === 'A' ? deckA : deckB;
 
-    const triggerTime = currentDeck.outroTime;
+    const triggerTime = djMode === 'jukebox'
+      ? Math.max(0, currentDeck.duration - 15)
+      : currentDeck.outroTime;
     
     if (currentTime >= triggerTime && currentTime < currentDeck.duration - 2) {
       transitionCheckedRef.current[playingDeckId] = true;
-      addLog(`Auto-DJ: ¡Punto Outro alcanzado en Deck ${playingDeckId} (${triggerTime.toFixed(1)}s)!`);
+      if (djMode === 'jukebox') {
+        addLog(`Jukebox: ¡Punto de transición alcanzado en Deck ${playingDeckId} (${triggerTime.toFixed(1)}s, 15s antes del final)!`);
+      } else {
+        addLog(`Auto-DJ: ¡Punto Outro alcanzado en Deck ${playingDeckId} (${triggerTime.toFixed(1)}s)!`);
+      }
       
       if (targetDeck.track) {
-        addLog(`Auto-DJ: Usando canción cargada manualmente "${targetDeck.track.title}" en Deck ${targetDeckId} para la mezcla.`);
+        if (djMode === 'jukebox') {
+          addLog(`Jukebox: Usando canción cargada manualmente "${targetDeck.track.title}" en Deck ${targetDeckId} para la mezcla.`);
+        } else {
+          addLog(`Auto-DJ: Usando canción cargada manualmente "${targetDeck.track.title}" en Deck ${targetDeckId} para la mezcla.`);
+        }
         triggerAutomatedTransition(playingDeckId, targetDeckId, targetDeck.track);
       } else {
         const compatibleTrack = findCompatibleTrack(currentDeck.track);
         
         if (compatibleTrack) {
-          addLog(`Auto-DJ: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
+          if (djMode === 'jukebox') {
+            addLog(`Jukebox: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
+          } else {
+            addLog(`Auto-DJ: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
+          }
           loadTrackIntoDeck(compatibleTrack, targetDeckId, true, true);
         } else {
-          addLog(`Auto-DJ Advertencia: No hay canciones compatibles en la biblioteca (BPM ±5.0% y Camelot Key compatible) para mezclar automáticamente.`);
+          if (djMode === 'jukebox') {
+            addLog(`Jukebox Advertencia: No hay canciones en la biblioteca para mezclar automáticamente.`);
+          } else {
+            addLog(`Auto-DJ Advertencia: No hay canciones compatibles en la biblioteca (BPM ±5.0% y Camelot Key compatible) para mezclar automáticamente.`);
+          }
         }
       }
     }
@@ -515,8 +533,9 @@ export function useAudioEngine({ library, addLog }) {
 
     // Check if the current track in the deck is user-selected and we are trying to autoload
     const currentDeck = deckId === 'A' ? deckA : deckB;
+    const modeLabel = djMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
     if (isAutoload && currentDeck.track && currentDeck.isUserSelected) {
-      addLog(`Auto-DJ: Conservando la canción "${currentDeck.track.title}" elegida por el usuario en Deck ${deckId}.`);
+      addLog(`${modeLabel}: Conservando la canción "${currentDeck.track.title}" elegida por el usuario en Deck ${deckId}.`);
       return;
     }
 
@@ -532,7 +551,7 @@ export function useAudioEngine({ library, addLog }) {
     // If loaded manually by user, clear any pending autoload timer for this deck
     if (!isAutoload && autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current.cancel(deckId);
-      addLog(`Auto-DJ: Cancelado pre-cargado automático en Deck ${deckId} debido a carga manual.`);
+      addLog(`${modeLabel}: Cancelado pre-cargado automático en Deck ${deckId} debido a carga manual.`);
     }
 
     // Track played history
