@@ -91,6 +91,7 @@ export default function Deck({
               duration={deck.duration}
               introTime={deck.introTime}
               outroTime={deck.outroTime}
+              cueTime={deck.cueTime}
               playedColor={playedColor}
               unplayedColor={unplayedColor}
               vinylMode={deck.vinylMode}

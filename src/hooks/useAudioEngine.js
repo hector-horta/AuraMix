@@ -33,6 +33,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     eq: { low: 0, mid: 0, high: 0 }, // values in dB (-40 to 12)
     outroTime: 0,
     introTime: 0,
+    cueTime: 0,
     vinylMode: true,
     isUserSelected: false,
     activeLoopBars: null,
@@ -50,6 +51,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     eq: { low: 0, mid: 0, high: 0 },
     outroTime: 0,
     introTime: 0,
+    cueTime: 0,
     vinylMode: true,
     isUserSelected: false,
     activeLoopBars: null,
@@ -340,6 +342,17 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
     const targetTrack = incomingTrack || targetDeck.track;
     
+    // Set incoming track pausedAt to cue point if not Jukebox, has a cue > 0, and not manually played
+    const cuePoint = (currentDjMode !== 'jukebox' && targetTrack) ? (targetTrack.cue || 0) : 0;
+    if (cuePoint > 0 && nodesTo.pausedAt === 0) {
+      nodesTo.pausedAt = cuePoint;
+      if (toDeckId === 'A') {
+        setDeckA(prev => ({ ...prev, currentTime: cuePoint }));
+      } else {
+        setDeckB(prev => ({ ...prev, currentTime: cuePoint }));
+      }
+    }
+    
     // In Jukebox mode, the incoming track plays at its natural tempo (pitchOffset = 0)
     const pitchOffset = currentDjMode === 'jukebox' ? 0 : (targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0);
     
@@ -408,8 +421,10 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     const introTimeVal = targetTrack ? targetTrack.intro : 90;
     const fromDeckVolume = currentDeck.volume;
 
+    const introDurationVal = Math.max(0, introTimeVal - cuePoint);
+
     const timing = calculateTransitionTiming(
-      currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime, currentDjMode
+      currentDeckDuration, outroTimeFrom, introDurationVal, highPrecisionTime, delay, startTime, currentDjMode
     );
 
     const { transitionDuration, phaseDuration, t0, t1, t2, t3 } = timing;
@@ -645,18 +660,23 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
     const initialPitch = currentDjMode === 'jukebox' ? 0 : (((masterBpm - track.bpm) / track.bpm) * 100);
     nodesRef.current[deckId].pitch = initialPitch;
-    nodesRef.current[deckId].pausedAt = 0;
+    
+    // Position playhead at CUE point if loaded manually and cue is set (> 0)
+    const trackCue = track.cue || 0;
+    const initialPausedAt = (!isAutoload && trackCue > 0) ? trackCue : 0;
+    nodesRef.current[deckId].pausedAt = initialPausedAt;
 
     const initialDeckState = {
       track: track,
       isPlaying: false,
-      currentTime: 0,
+      currentTime: initialPausedAt,
       duration: track.buffer.duration,
       pitch: initialPitch,
       volume: 1.0,
       eq: { low: 0, mid: 0, high: 0 },
       outroTime: track.outro,
       introTime: track.intro,
+      cueTime: trackCue,
       vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode,
       isUserSelected: !isAutoload,
       activeLoopBars: null,
@@ -818,31 +838,56 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     const trackId = currentDeck.track.id;
     
     if (markerType === 'drop') {
+      // Limit drop between cuePoint (if any) and outroTime
+      const cueVal = currentDeck.cueTime || 0;
+      const outroVal = currentDeck.outroTime || currentDeck.duration;
+      const validatedTime = Math.max(cueVal, Math.min(newTime, outroVal));
+
       setDeck(prev => {
         if (!prev.track) return prev;
         return {
           ...prev,
-          introTime: newTime,
-          track: { ...prev.track, intro: newTime }
+          introTime: validatedTime,
+          track: { ...prev.track, intro: validatedTime }
         };
       });
       if (onUpdateTrackCuePoints) {
-        onUpdateTrackCuePoints(trackId, newTime, undefined);
+        onUpdateTrackCuePoints(trackId, validatedTime, undefined, undefined);
       }
     } else if (markerType === 'outro') {
+      // Limit outro to be after drop
+      const dropVal = currentDeck.introTime || 0;
+      const validatedTime = Math.max(dropVal, Math.min(newTime, currentDeck.duration));
+
       setDeck(prev => {
         if (!prev.track) return prev;
         return {
           ...prev,
-          outroTime: newTime,
-          track: { ...prev.track, outro: newTime }
+          outroTime: validatedTime,
+          track: { ...prev.track, outro: validatedTime }
         };
       });
       if (onUpdateTrackCuePoints) {
-        onUpdateTrackCuePoints(trackId, undefined, newTime);
+        onUpdateTrackCuePoints(trackId, undefined, validatedTime, undefined);
       }
-      if (currentDeck.currentTime < newTime) {
+      if (currentDeck.currentTime < validatedTime) {
         transitionCheckedRef.current[deckId] = false;
+      }
+    } else if (markerType === 'cue') {
+      // Limit cue between 0 and drop (introTime)
+      const dropVal = currentDeck.introTime || 0;
+      const validatedTime = Math.max(0, Math.min(newTime, dropVal));
+
+      setDeck(prev => {
+        if (!prev.track) return prev;
+        return {
+          ...prev,
+          cueTime: validatedTime,
+          track: { ...prev.track, cue: validatedTime }
+        };
+      });
+      if (onUpdateTrackCuePoints) {
+        onUpdateTrackCuePoints(trackId, undefined, undefined, validatedTime);
       }
     }
   };

@@ -8,6 +8,7 @@ export default function Waveform({
   duration,
   introTime,
   outroTime,
+  cueTime,
   playedColor,
   unplayedColor,
   vinylMode,
@@ -166,10 +167,19 @@ export default function Waveform({
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const introPercent = duration > 0 ? (introTime / duration) * 100 : 0;
   const outroPercent = duration > 0 ? (outroTime / duration) * 100 : 0;
+  const cuePercent = duration > 0 ? (cueTime / duration) * 100 : 0;
 
   return (
     <div className="waveform-wrapper">
       {/* Cue time indicators outside the waveform */}
+      {djMode !== 'jukebox' && duration > 0 && cueTime > 0 && (
+        <span 
+          className="waveform-cue-time-badge"
+          style={{ left: `${cuePercent}%` }}
+        >
+          {formatTime(cueTime)}
+        </span>
+      )}
       {djMode !== 'jukebox' && duration > 0 && introTime > 0 && (
         <span 
           className="waveform-cue-time-badge"
@@ -203,6 +213,19 @@ export default function Waveform({
           className={`waveform-progress-bar ${activeLoopBars ? 'looping' : ''}`} 
           style={{ left: `${progressPercent}%` }} 
         />
+
+        {/* CUE Point marker */}
+        {djMode !== 'jukebox' && duration > 0 && cueTime !== undefined && (
+          <div 
+            className="cue-marker-container"
+            style={{ left: `${cuePercent}%` }}
+            onMouseDown={(e) => handleMarkerStart('cue', e)}
+            onTouchStart={(e) => handleMarkerStart('cue', e)}
+          >
+            <div className="cue-marker" />
+            <span className="cue-label">CUE</span>
+          </div>
+        )}
 
         {/* Intro Cue marker */}
         {djMode !== 'jukebox' && duration > 0 && introTime > 0 && (

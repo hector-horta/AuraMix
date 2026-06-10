@@ -25,13 +25,14 @@ export default function App() {
   const [analyzingProgress, setAnalyzingProgress] = useState("");
   const addLog = (msg) => console.log("[DJ Engine]", msg);
 
-  const updateTrackCuePoints = (trackId, introTime, outroTime) => {
+  const updateTrackCuePoints = (trackId, introTime, outroTime, cueTime) => {
     setLibrary(prev => prev.map(track => {
       if (track.id === trackId) {
         return {
           ...track,
           intro: introTime !== undefined ? introTime : track.intro,
-          outro: outroTime !== undefined ? outroTime : track.outro
+          outro: outroTime !== undefined ? outroTime : track.outro,
+          cue: cueTime !== undefined ? cueTime : track.cue
         };
       }
       return track;
@@ -131,6 +132,7 @@ export default function App() {
           keyName: keyData.keyName,
           outro: outroTime,
           intro: introTime,
+          cue: 0,
           firstBeatOffset: firstBeatOffset,
           duration: decodedBuffer.duration,
           buffer: decodedBuffer,
@@ -182,6 +184,7 @@ export default function App() {
         keyName: demoTrack.keyName !== undefined ? keyData.keyName : keyData.keyName,
         outro: demoTrack.outro !== undefined ? demoTrack.outro : outroTime,
         intro: demoTrack.intro !== undefined ? demoTrack.intro : introTime,
+        cue: demoTrack.cue !== undefined ? demoTrack.cue : 0,
         firstBeatOffset: demoTrack.firstBeatOffset !== undefined ? demoTrack.firstBeatOffset : firstBeatOffset,
         duration: decodedBuffer.duration,
         buffer: decodedBuffer
