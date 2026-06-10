@@ -96,6 +96,10 @@ export function useAudioEngine({ library, addLog }) {
   const libraryRef = useRef(library);
   const playedTrackIdsRef = useRef(playedTrackIds);
   const djModeRef = useRef(djMode);
+  const masterBpmRef = useRef(masterBpm);
+  const activeDeckIdRef = useRef(activeDeckId);
+  const deckARef = useRef(deckA);
+  const deckBRef = useRef(deckB);
 
   useEffect(() => {
     libraryRef.current = library;
@@ -104,6 +108,19 @@ export function useAudioEngine({ library, addLog }) {
   useEffect(() => {
     playedTrackIdsRef.current = playedTrackIds;
   }, [playedTrackIds]);
+
+  useEffect(() => {
+    masterBpmRef.current = masterBpm;
+  }, [masterBpm]);
+
+  useEffect(() => {
+    activeDeckIdRef.current = activeDeckId;
+  }, [activeDeckId]);
+
+  useEffect(() => {
+    deckARef.current = deckA;
+    deckBRef.current = deckB;
+  }, [deckA, deckB]);
 
   // --- REFS FOR WEB AUDIO API ---
   const audioCtxRef = useRef(null);
@@ -174,6 +191,37 @@ export function useAudioEngine({ library, addLog }) {
       if (autoloadSchedulerRef.current) {
         autoloadSchedulerRef.current.cancelAll();
       }
+    } else if (djMode === 'jukebox') {
+      // Respect original BPMs: reset pitch faders of both decks to 0
+      updatePitch('A', 0);
+      updatePitch('B', 0);
+      setDeckA(prev => ({ ...prev, pitch: 0 }));
+      setDeckB(prev => ({ ...prev, pitch: 0 }));
+      
+      // Update masterBpm to the active track's BPM (if playing/loaded)
+      const currentActiveDeck = activeDeckIdRef.current === 'A' ? deckARef.current : deckBRef.current;
+      if (currentActiveDeck && currentActiveDeck.track) {
+        setMasterBpm(currentActiveDeck.track.bpm);
+      }
+    } else if (djMode === 'autodj') {
+      // When switching back to Auto-DJ, sync decks to current masterBpm
+      const currentMasterBpm = masterBpmRef.current;
+      setDeckA(prev => {
+        if (prev.track) {
+          const pitchVal = ((currentMasterBpm - prev.track.bpm) / prev.track.bpm) * 100;
+          updatePitch('A', pitchVal);
+          return { ...prev, pitch: pitchVal };
+        }
+        return prev;
+      });
+      setDeckB(prev => {
+        if (prev.track) {
+          const pitchVal = ((currentMasterBpm - prev.track.bpm) / prev.track.bpm) * 100;
+          updatePitch('B', pitchVal);
+          return { ...prev, pitch: pitchVal };
+        }
+        return prev;
+      });
     }
   }, [djMode]);
 
@@ -220,6 +268,12 @@ export function useAudioEngine({ library, addLog }) {
 
   const changeMasterBpm = (newBpm) => {
     setMasterBpm(newBpm);
+    
+    if (djModeRef.current === 'jukebox') {
+      // In Jukebox mode, the playing tracks always respect their original BPM.
+      // Changing the master BPM fader does not affect deck playback rate.
+      return;
+    }
     
     setDeckA(prev => {
       if (prev.track) {
@@ -587,7 +641,7 @@ export function useAudioEngine({ library, addLog }) {
     const normalizedPeaks = maxVal > 0 ? peaks.map(p => p / maxVal) : peaks;
     setWaveformData(prev => ({ ...prev, [deckId]: normalizedPeaks }));
 
-    const initialPitch = ((masterBpm - track.bpm) / track.bpm) * 100;
+    const initialPitch = currentDjMode === 'jukebox' ? 0 : (((masterBpm - track.bpm) / track.bpm) * 100);
     nodesRef.current[deckId].pitch = initialPitch;
     nodesRef.current[deckId].pausedAt = 0;
 

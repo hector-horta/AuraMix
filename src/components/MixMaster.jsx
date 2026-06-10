@@ -115,6 +115,7 @@ export default function MixMaster({
                 value={masterBpm} 
                 onChange={(e) => onChangeMasterBpm(parseInt(e.target.value))}
                 className="bpm-range-slider"
+                disabled={djMode === 'jukebox'}
               />
               <div className="bpm-input-wrapper">
                 <input 
@@ -129,6 +130,7 @@ export default function MixMaster({
                     }
                   }}
                   className="bpm-number-input"
+                  disabled={djMode === 'jukebox'}
                 />
                 <span className="bpm-unit-text">BPM</span>
               </div>
