@@ -275,6 +275,8 @@ export function useAudioEngine({ library, addLog }) {
       progress: 0
     });
 
+    const currentDjMode = djModeRef.current;
+
     addLog(`Iniciando mezcla automática: Deck ${fromDeckId} ➔ Deck ${toDeckId}`);
     
     const nodesFrom = nodesRef.current[fromDeckId];
@@ -283,7 +285,7 @@ export function useAudioEngine({ library, addLog }) {
     const targetTrack = incomingTrack || (toDeckId === 'A' ? deckA.track : deckB.track);
     
     // In Jukebox mode, the incoming track plays at its natural tempo (pitchOffset = 0)
-    const pitchOffset = djMode === 'jukebox' ? 0 : (targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0);
+    const pitchOffset = currentDjMode === 'jukebox' ? 0 : (targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0);
     
     nodesRef.current[toDeckId].pitch = pitchOffset;
     
@@ -299,7 +301,7 @@ export function useAudioEngine({ library, addLog }) {
       }
     }
     
-    if (djMode === 'jukebox') {
+    if (currentDjMode === 'jukebox') {
       addLog(`Alineando tempo (Modo Jukebox): Deck ${toDeckId} a velocidad original (${targetTrack?.bpm} BPM)`);
       nodesTo.lowShelf.gain.value = 0;
       nodesTo.midPeaking.gain.value = 0;
@@ -351,7 +353,7 @@ export function useAudioEngine({ library, addLog }) {
     const fromDeckVolume = fromDeckId === 'A' ? deckA.volume : deckB.volume;
 
     const timing = calculateTransitionTiming(
-      currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime, djMode
+      currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime, currentDjMode
     );
 
     const { transitionDuration, phaseDuration, t0, t1, t2, t3 } = timing;
@@ -368,7 +370,7 @@ export function useAudioEngine({ library, addLog }) {
     const fromBpm = activeTrack ? activeTrack.bpm : 120;
     const playbackRateFrom = 1 + (pitchFrom / 100);
 
-    if (djMode === 'jukebox') {
+    if (currentDjMode === 'jukebox') {
       scheduleJukeboxTransition(nodesFrom, nodesTo, t0, t3, fromDeckVolume, targetTrack?.bpm, fromBpm, playbackRateFrom);
     } else if (autoDjStyle === 'bass') {
       scheduleEqualPowerCrossfade(nodesFrom, nodesTo, t0, t3, fromDeckVolume);
@@ -426,7 +428,7 @@ export function useAudioEngine({ library, addLog }) {
       }, completionTime * 1000);
     };
 
-    if (djMode === 'jukebox') {
+    if (currentDjMode === 'jukebox') {
       setTimeout(() => {
         setTransitionState(prev => ({ ...prev, phase: 'crossfade', progress: 10 }));
         addLog(`Transición Jukebox: Iniciando Crossfade y rampa de tempo hacia ${targetTrack?.bpm} BPM...`);
@@ -481,27 +483,29 @@ export function useAudioEngine({ library, addLog }) {
   };
 
   const checkAutoDjTransition = (playingDeckId, currentTime) => {
-    if (!autoDj || transitionState.active || transitionActiveRef.current) return;
+    const currentDjMode = djModeRef.current;
+    const isAutoDjActive = currentDjMode !== 'manual';
+    if (!isAutoDjActive || transitionState.active || transitionActiveRef.current) return;
     if (transitionCheckedRef.current[playingDeckId]) return;
 
     const currentDeck = playingDeckId === 'A' ? deckA : deckB;
     const targetDeckId = playingDeckId === 'A' ? 'B' : 'A';
     const targetDeck = targetDeckId === 'A' ? deckA : deckB;
 
-    const triggerTime = djMode === 'jukebox'
+    const triggerTime = currentDjMode === 'jukebox'
       ? Math.max(0, currentDeck.duration - 15)
       : currentDeck.outroTime;
     
     if (currentTime >= triggerTime && currentTime < currentDeck.duration - 2) {
       transitionCheckedRef.current[playingDeckId] = true;
-      if (djMode === 'jukebox') {
+      if (currentDjMode === 'jukebox') {
         addLog(`Jukebox: ¡Punto de transición alcanzado en Deck ${playingDeckId} (${triggerTime.toFixed(1)}s, 15s antes del final)!`);
       } else {
         addLog(`Auto-DJ: ¡Punto Outro alcanzado en Deck ${playingDeckId} (${triggerTime.toFixed(1)}s)!`);
       }
       
       if (targetDeck.track) {
-        if (djMode === 'jukebox') {
+        if (currentDjMode === 'jukebox') {
           addLog(`Jukebox: Usando canción cargada manualmente "${targetDeck.track.title}" en Deck ${targetDeckId} para la mezcla.`);
         } else {
           addLog(`Auto-DJ: Usando canción cargada manualmente "${targetDeck.track.title}" en Deck ${targetDeckId} para la mezcla.`);
@@ -511,14 +515,14 @@ export function useAudioEngine({ library, addLog }) {
         const compatibleTrack = findCompatibleTrack(currentDeck.track);
         
         if (compatibleTrack) {
-          if (djMode === 'jukebox') {
+          if (currentDjMode === 'jukebox') {
             addLog(`Jukebox: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
           } else {
             addLog(`Auto-DJ: Cargando canción compatible "${compatibleTrack.title}" en Deck ${targetDeckId}.`);
           }
           loadTrackIntoDeck(compatibleTrack, targetDeckId, true, true);
         } else {
-          if (djMode === 'jukebox') {
+          if (currentDjMode === 'jukebox') {
             addLog(`Jukebox Advertencia: No hay canciones en la biblioteca para mezclar automáticamente.`);
           } else {
             addLog(`Auto-DJ Advertencia: No hay canciones compatibles en la biblioteca (BPM ±5.0% y Camelot Key compatible) para mezclar automáticamente.`);
@@ -531,9 +535,11 @@ export function useAudioEngine({ library, addLog }) {
   const loadTrackIntoDeck = (track, deckId, startAutoTransition = false, isAutoload = false) => {
     initAudio();
 
+    const currentDjMode = djModeRef.current;
+
     // Check if the current track in the deck is user-selected and we are trying to autoload
     const currentDeck = deckId === 'A' ? deckA : deckB;
-    const modeLabel = djMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
+    const modeLabel = currentDjMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
     if (isAutoload && currentDeck.track && currentDeck.isUserSelected) {
       addLog(`${modeLabel}: Conservando la canción "${currentDeck.track.title}" elegida por el usuario en Deck ${deckId}.`);
       return;
