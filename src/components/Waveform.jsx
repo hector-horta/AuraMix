@@ -15,6 +15,7 @@ export default function Waveform({
   onScratchMove,
   onScratchEnd,
   onSeek,
+  onMarkerMove,
   activeLoopBars,
   loopStart,
   loopEnd,
@@ -130,6 +131,38 @@ export default function Waveform({
     window.addEventListener('touchend', handleMouseUp);
   };
 
+  const handleMarkerStart = (markerType, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const isTouch = e.type === 'touchstart';
+    
+    const handleMove = (moveEvent) => {
+      const clientX = moveEvent.type === 'touchmove' ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const percent = Math.max(0, Math.min(1.0, (clientX - rect.left) / rect.width));
+      const newTime = percent * duration;
+      if (onMarkerMove) {
+        onMarkerMove(markerType, newTime);
+      }
+    };
+    
+    const handleEnd = () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+    
+    if (isTouch) {
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+    } else {
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+    }
+  };
+
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const introPercent = duration > 0 ? (introTime / duration) * 100 : 0;
   const outroPercent = duration > 0 ? (outroTime / duration) * 100 : 0;
@@ -173,34 +206,28 @@ export default function Waveform({
 
         {/* Intro Cue marker */}
         {djMode !== 'jukebox' && duration > 0 && introTime > 0 && (
-          <>
-            <div 
-              className="intro-marker" 
-              style={{ left: `${introPercent}%` }}
-            />
-            <span 
-              className="intro-label"
-              style={{ left: `${introPercent}%` }}
-            >
-              DROP
-            </span>
-          </>
+          <div 
+            className="cue-marker-container"
+            style={{ left: `${introPercent}%` }}
+            onMouseDown={(e) => handleMarkerStart('drop', e)}
+            onTouchStart={(e) => handleMarkerStart('drop', e)}
+          >
+            <div className="intro-marker" />
+            <span className="intro-label">DROP</span>
+          </div>
         )}
 
         {/* Outro Cue marker */}
         {djMode !== 'jukebox' && duration > 0 && outroTime > 0 && (
-          <>
-            <div 
-              className="outro-marker" 
-              style={{ left: `${outroPercent}%` }}
-            />
-            <span 
-              className="outro-label"
-              style={{ left: `${outroPercent}%` }}
-            >
-              OUTRO
-            </span>
-          </>
+          <div 
+            className="cue-marker-container"
+            style={{ left: `${outroPercent}%` }}
+            onMouseDown={(e) => handleMarkerStart('outro', e)}
+            onTouchStart={(e) => handleMarkerStart('outro', e)}
+          >
+            <div className="outro-marker" />
+            <span className="outro-label">OUTRO</span>
+          </div>
         )}
       </div>
     </div>

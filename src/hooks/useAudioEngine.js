@@ -21,7 +21,7 @@ import {
   handleScratchStop as scratchStop
 } from '../audio/scratchEngine'
 
-export function useAudioEngine({ library, addLog }) {
+export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   // Decks State
   const [deckA, setDeckA] = useState({
     track: null,
@@ -330,13 +330,15 @@ export function useAudioEngine({ library, addLog }) {
     });
 
     const currentDjMode = djModeRef.current;
+    const currentDeck = fromDeckId === 'A' ? deckARef.current : deckBRef.current;
+    const targetDeck = toDeckId === 'A' ? deckARef.current : deckBRef.current;
 
     addLog(`Iniciando mezcla automática: Deck ${fromDeckId} ➔ Deck ${toDeckId}`);
     
     const nodesFrom = nodesRef.current[fromDeckId];
     const nodesTo = nodesRef.current[toDeckId];
 
-    const targetTrack = incomingTrack || (toDeckId === 'A' ? deckA.track : deckB.track);
+    const targetTrack = incomingTrack || targetDeck.track;
     
     // In Jukebox mode, the incoming track plays at its natural tempo (pitchOffset = 0)
     const pitchOffset = currentDjMode === 'jukebox' ? 0 : (targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0);
@@ -380,8 +382,8 @@ export function useAudioEngine({ library, addLog }) {
     }
 
     // --- BEAT GRID ALIGNMENT (delegated to transitionEngine) ---
-    const activeTrack = fromDeckId === 'A' ? deckA.track : deckB.track;
-    const pitchFrom = fromDeckId === 'A' ? deckA.pitch : deckB.pitch;
+    const activeTrack = currentDeck.track;
+    const pitchFrom = currentDeck.pitch;
     const pausedAtTo = nodesTo.pausedAt || 0.0;
 
     const { startTime, delay, highPrecisionTime } = calculateBeatAlignment(
@@ -401,10 +403,10 @@ export function useAudioEngine({ library, addLog }) {
     addLog(`Alineación rítmica: Lanzando Deck ${toDeckId} (primer golpe a +${(calculatedDelay * 1000).toFixed(0)}ms)`);
 
     // --- TRANSITION TIMING (delegated to transitionEngine) ---
-    const currentDeckDuration = fromDeckId === 'A' ? deckA.duration : deckB.duration;
-    const outroTimeFrom = fromDeckId === 'A' ? deckA.outroTime : deckB.outroTime;
-    const introTimeVal = incomingTrack ? incomingTrack.intro : 90;
-    const fromDeckVolume = fromDeckId === 'A' ? deckA.volume : deckB.volume;
+    const currentDeckDuration = currentDeck.duration;
+    const outroTimeFrom = currentDeck.outroTime;
+    const introTimeVal = targetTrack ? targetTrack.intro : 90;
+    const fromDeckVolume = currentDeck.volume;
 
     const timing = calculateTransitionTiming(
       currentDeckDuration, outroTimeFrom, introTimeVal, highPrecisionTime, delay, startTime, currentDjMode
@@ -428,11 +430,11 @@ export function useAudioEngine({ library, addLog }) {
       scheduleJukeboxTransition(nodesFrom, nodesTo, t0, t3, fromDeckVolume, targetTrack?.bpm, fromBpm, playbackRateFrom);
     } else if (autoDjStyle === 'bass') {
       scheduleEqualPowerCrossfade(nodesFrom, nodesTo, t0, t3, fromDeckVolume);
-      const fromEq = fromDeckId === 'A' ? deckA.eq : deckB.eq;
+      const fromEq = currentDeck.eq;
       scheduleBasslineSwap(nodesFrom, nodesTo, t0, t3, fromEq);
     } else {
       scheduleAutoDjVolume(nodesFrom, nodesTo, t0, t3, fromDeckVolume);
-      const fromEq = fromDeckId === 'A' ? deckA.eq : deckB.eq;
+      const fromEq = currentDeck.eq;
       scheduleEqTransition(nodesFrom, nodesTo, eqOrder, [t0, t1, t2, t3], fromEq);
     }
 
@@ -542,9 +544,9 @@ export function useAudioEngine({ library, addLog }) {
     if (!isAutoDjActive || transitionState.active || transitionActiveRef.current) return;
     if (transitionCheckedRef.current[playingDeckId]) return;
 
-    const currentDeck = playingDeckId === 'A' ? deckA : deckB;
+    const currentDeck = playingDeckId === 'A' ? deckARef.current : deckBRef.current;
     const targetDeckId = playingDeckId === 'A' ? 'B' : 'A';
-    const targetDeck = targetDeckId === 'A' ? deckA : deckB;
+    const targetDeck = targetDeckId === 'A' ? deckARef.current : deckBRef.current;
 
     const triggerTime = currentDjMode === 'jukebox'
       ? Math.max(0, currentDeck.duration - 15)
@@ -806,6 +808,43 @@ export function useAudioEngine({ library, addLog }) {
     }
     
     addLog(`Deck ${deckId}: Saltar a ${formatTime(targetTime)}.`);
+  };
+
+  const updateDeckCuePoints = (deckId, markerType, newTime) => {
+    const setDeck = deckId === 'A' ? setDeckA : setDeckB;
+    const currentDeck = deckId === 'A' ? deckARef.current : deckBRef.current;
+    if (!currentDeck.track) return;
+    
+    const trackId = currentDeck.track.id;
+    
+    if (markerType === 'drop') {
+      setDeck(prev => {
+        if (!prev.track) return prev;
+        return {
+          ...prev,
+          introTime: newTime,
+          track: { ...prev.track, intro: newTime }
+        };
+      });
+      if (onUpdateTrackCuePoints) {
+        onUpdateTrackCuePoints(trackId, newTime, undefined);
+      }
+    } else if (markerType === 'outro') {
+      setDeck(prev => {
+        if (!prev.track) return prev;
+        return {
+          ...prev,
+          outroTime: newTime,
+          track: { ...prev.track, outro: newTime }
+        };
+      });
+      if (onUpdateTrackCuePoints) {
+        onUpdateTrackCuePoints(trackId, undefined, newTime);
+      }
+      if (currentDeck.currentTime < newTime) {
+        transitionCheckedRef.current[deckId] = false;
+      }
+    }
   };
 
   const jumpToOutro = (deckId) => {
@@ -1191,6 +1230,7 @@ export function useAudioEngine({ library, addLog }) {
     startScratch,
     updateScratch,
     stopScratch,
-    toggleDeckLoop
+    toggleDeckLoop,
+    updateDeckCuePoints
   };
 }

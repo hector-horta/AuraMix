@@ -35,7 +35,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **3-Way DJ Mode Selector:** Dynamic mode switcher with neon glow indicators in the MIX MASTER panel:
     *   **Manual (Auto-DJ Off):** The user has full manual control over volume faders, EQs, and playback. Automated transitions will not trigger at the Outro.
     *   **Auto-DJ:** Automated smart transitions. At the outro point, the engine loads a compatible track, syncs its BPM, performs beat phase alignment, and starts the selected transition algorithm (EQ Ramp or Bassline Swap). To keep the mixing flow active, a 10-second timer prep-loads the next compatible track into the stopped deck after each mix.
-    *   **Jukebox (Radio Station):** Radio-like crossfade transition. The tempo of the outgoing track ramps dynamically to match the incoming track's native tempo, EQs remain flat at 0dB, and the Master BPM updates to the incoming track's native BPM on transition completion.
+    *   **Jukebox (Radio Station):** Radio-like crossfade transition. The tracks always play at their original BPMs (pitch fader forced to 0%), and the Master BPM slider is disabled in the UI to prevent tempo locking. The transition duration is fixed at 15 seconds (or the remaining duration of the track if shorter). EQs remain flat at 0dB, and the Master BPM is updated to the incoming track's native BPM on transition completion.
 *   **Dual Auto-DJ Transition Algorithms:** A cyberpunk hardware switch situated right below the SYNC button allows the DJ to choose how Auto-DJ transitions are mixed:
     *   **EQ (EQ Ramp Mix):** A 3-phase automated frequency crossover (Lows, Mids, Highs) based on the draggable EQ precedence order, maintaining constant volume.
     *   **Swap (Bassline Swap):** High/mid bands and channel volume blend smoothly using equal-power curves, while the bass (Low EQ) is instantly cut/swapped at the transition midpoint to maintain energy.
@@ -59,6 +59,8 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Manual Override / User Priority Rule:** Auto-DJ respects user-selected tracks manually loaded onto an idle deck. It will never overwrite the human DJ's choice of song with an autoloaded track, ensuring manual overrides are preserved.
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
+*   **Draggable Cue Points (DROP & OUTRO):** Users can manually override Auto-DJ cue suggestions by clicking and dragging the green DROP and orange OUTRO markers directly on the waveform. A 24px wide transparent vertical wrapper provides a generous interaction target for mouse and touch dragging, while keeping the visual lines thin. Custom cue points update both the active deck state and the track library in real time.
+*   **Clear Playlist Button:** A "Limpiar Playlist" button in the library panel allows clearing all loaded tracks from the selector list with a single click.
 *   **AuraLoops Beat-Aligned Quantized Looper:** A third tab ("AuraLoops") in the Mixer Panel provides a grid of performance pads (4, 8, 12, 16 bars) per deck. Loop triggers snap to the track's beat grid, allowing loops of 16, 32, 48, or 64 beats. Selecting a different pad resizes the loop while preserving the loop start position, and pressing the active pad again deactivates it.
 *   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic 2-column UI styled with neon accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations. The center columns expand horizontally to provide a spacious console layout for playback, effects, and looping pads.
 
@@ -122,10 +124,10 @@ To ensure natural sound quality and prevent extreme pitch bending when mixing, t
 When the playing deck reaches the Outro point of the current track, if the mode is not **Manual**, it triggers the automated mixing sequence in the background. The core scheduling logic is managed by [`triggerAutomatedTransition`](file:///d:/dev/AuraMix/src/hooks/useAudioEngine.js#L434-L754):
 
 ### Tempo Matching (Pitch Matching)
-*   **Auto-DJ Mode:** The engine reads the original BPM of the playing track (`fromBpm`) and the incoming track (`toBpm`). It calculates the speed adjustment ratio to align them to the global Master BPM:
+*   **Auto-DJ & Manual Modes:** The engine reads the original BPM of the playing track (`fromBpm`) and the incoming track (`toBpm`). It calculates the speed adjustment ratio to align them to the global Master BPM:
     $$\text{pitchOffset} = \frac{\text{MasterBPM} - \text{toBpm}}{\text{toBpm}} \times 100$$
     This percentage is applied to the incoming deck's pitch fader and assigned directly to the audio node: `source.playbackRate.value = 1 + (pitchOffset / 100)`.
-*   **Jukebox Mode:** The incoming track plays at its natural tempo (`pitchOffset` = 0). The outgoing track's playback rate is progressively ramped from its active playback rate to match the incoming track's native tempo:
+*   **Jukebox Mode:** Decks respect the original track BPMs; the playback pitch remains at 0% (natural tempo). Manual adjustments to the Master BPM slider are ignored/disabled to preserve the tracks' native speeds. During transitions, the outgoing track's playback rate is progressively ramped from its active rate to match the incoming track's native tempo:
     $$\text{targetPlaybackRate} = \frac{\text{incomingTrack.bpm}}{\text{outgoingTrack.bpm}}$$
     This is automated via Web Audio AudioParam linear ramps over the transition duration: `source.playbackRate.linearRampToValueAtTime(targetPlaybackRate, t3)`.
 
@@ -185,7 +187,7 @@ graph TD
 *   **Completion:** The outgoing deck is stopped, its EQs and volumes are reset to defaults, and the crossfader is centered on the new active deck.
 
 #### 2. Jukebox: Volume Crossfade & Tempo Ramp
-Jukebox mode performs a traditional radio station crossfade combined with a dynamic pitch ramp:
+Jukebox mode performs a traditional radio station crossfade combined with a dynamic pitch ramp over a fixed 15-second duration:
 
 ```mermaid
 graph TD
@@ -193,6 +195,7 @@ graph TD
     B --> C[Transition Done: Update Master BPM & Reset Outgoing Deck]
 ```
 
+*   **Fixed Crossfade Duration:** The transition duration is forced to exactly 15 seconds (or the remaining duration of the track if shorter).
 *   **EQs Flat:** Channel EQ filters for both tracks remain flat at `0dB` during the transition.
 *   **Volume Crossfade:** The outgoing deck volume is linearly ramped from its active volume level to `0.0` using Web Audio `gainNode.gain.linearRampToValueAtTime(0.0, t3)`. Simultaneously, the incoming deck volume is linearly ramped from `0.0` to `1.0`.
 *   **Tempo Ramp:** The playback rate of the outgoing deck is linearly ramped to match the incoming track's native tempo.

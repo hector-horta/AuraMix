@@ -43,11 +43,23 @@
   box-shadow: 0 0 8px var(--neon-orange);
 }
 
-.intro-marker {
+.cue-marker-container {
   position: absolute;
   top: 0;
   height: 100%;
+  width: 24px;
+  transform: translateX(-50%);
+  z-index: 10;
+  cursor: ew-resize;
+}
+
+.intro-marker {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
   width: 2px;
+  transform: translateX(-50%);
   background: var(--neon-green);
   box-shadow: 0 0 8px var(--neon-green);
   opacity: 0.7;
@@ -63,6 +75,7 @@
 .intro-label {
   position: absolute;
   top: 4px;
+  left: 50%;
   transform: translateX(-50%);
   background: var(--neon-green);
   color: #000;
@@ -79,8 +92,10 @@
 .outro-marker {
   position: absolute;
   top: 0;
+  left: 50%;
   height: 100%;
   width: 2px;
+  transform: translateX(-50%);
   background: var(--neon-orange);
   box-shadow: 0 0 8px var(--neon-orange);
   opacity: 0.7;
@@ -90,6 +105,7 @@
 .outro-label {
   position: absolute;
   top: 4px;
+  left: 50%;
   transform: translateX(-50%);
   background: var(--neon-orange);
   color: #000;

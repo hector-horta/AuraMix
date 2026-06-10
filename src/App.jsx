@@ -25,6 +25,19 @@ export default function App() {
   const [analyzingProgress, setAnalyzingProgress] = useState("");
   const addLog = (msg) => console.log("[DJ Engine]", msg);
 
+  const updateTrackCuePoints = (trackId, introTime, outroTime) => {
+    setLibrary(prev => prev.map(track => {
+      if (track.id === trackId) {
+        return {
+          ...track,
+          intro: introTime !== undefined ? introTime : track.intro,
+          outro: outroTime !== undefined ? outroTime : track.outro
+        };
+      }
+      return track;
+    }));
+  };
+
   const {
     deckA,
     deckB,
@@ -59,8 +72,9 @@ export default function App() {
     startScratch,
     updateScratch,
     stopScratch,
-    toggleDeckLoop
-  } = useAudioEngine({ library, addLog });
+    toggleDeckLoop,
+    updateDeckCuePoints
+  } = useAudioEngine({ library, addLog, onUpdateTrackCuePoints: updateTrackCuePoints });
 
   // --- AUDIO FILE UPLOAD & ANALYSIS ---
   const handleFileUpload = async (e) => {
@@ -269,6 +283,7 @@ export default function App() {
               onScratchStart={(isUpperHalf, clientX, clientY, rect) => startScratch('A', isUpperHalf, clientX, clientY, rect)}
               onScratchMove={(clientX, width) => updateScratch('A', clientX, width)}
               onScratchEnd={(isQuickClick, clickPercent) => stopScratch('A', isQuickClick, clickPercent)}
+              onMarkerMove={updateDeckCuePoints}
               accentColor="cyan"
               djMode={djMode}
             />
@@ -285,6 +300,7 @@ export default function App() {
               onScratchStart={(isUpperHalf, clientX, clientY, rect) => startScratch('B', isUpperHalf, clientX, clientY, rect)}
               onScratchMove={(clientX, width) => updateScratch('B', clientX, width)}
               onScratchEnd={(isQuickClick, clickPercent) => stopScratch('B', isQuickClick, clickPercent)}
+              onMarkerMove={updateDeckCuePoints}
               accentColor="pink"
               djMode={djMode}
             />
