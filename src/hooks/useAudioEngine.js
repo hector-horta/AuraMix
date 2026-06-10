@@ -404,10 +404,10 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     playDeckSource(toDeckId, startTime, pitchOffset);
     if (toDeckId === 'A') {
       setDeckA(prev => ({ ...prev, isPlaying: true }));
-      nodesRef.current.A.pausedAt = 0;
+      nodesRef.current.A.pausedAt = cuePoint;
     } else {
       setDeckB(prev => ({ ...prev, isPlaying: true }));
-      nodesRef.current.B.pausedAt = 0;
+      nodesRef.current.B.pausedAt = cuePoint;
     }
 
     const calculatedDelay = startTime - ctx.currentTime;
