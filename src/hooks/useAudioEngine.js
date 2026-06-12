@@ -1,7 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { areKeysCompatible } from '../utils/audioAnalyzer'
-import { formatTime } from '../utils/formatTime'
-import { createDeckGraph } from '../audio/audioGraph'
 import { findCompatibleTrack as findCompatible, createAutoloadScheduler } from '../audio/trackSelection'
 import {
   calculateBeatAlignment,
@@ -15,69 +12,21 @@ import {
   scheduleBasslineSwap
 } from '../audio/transitionEngine'
 import { updateFx as applyFx } from '../audio/fxEngine'
-import {
-  handleScratchStart as scratchStart,
-  handleScratchUpdate as scratchUpdate,
-  handleScratchStop as scratchStop
-} from '../audio/scratchEngine'
+import { useAudioDeck } from './useAudioDeck'
 
 export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
-  // Decks State
-  const [deckA, setDeckA] = useState({
-    track: null,
-    isPlaying: false,
-    currentTime: 0,
-    duration: 0,
-    pitch: 0, // pitch fader offset (-10% to +10%)
-    volume: 1.0,
-    eq: { low: 0, mid: 0, high: 0 }, // values in dB (-40 to 12)
-    outroTime: 0,
-    introTime: 0,
-    cueTime: 0,
-    vinylMode: true,
-    isUserSelected: false,
-    activeLoopBars: null,
-    loopStart: 0,
-    loopEnd: 0
-  });
-
-  const [deckB, setDeckB] = useState({
-    track: null,
-    isPlaying: false,
-    currentTime: 0,
-    duration: 0,
-    pitch: 0,
-    volume: 1.0,
-    eq: { low: 0, mid: 0, high: 0 },
-    outroTime: 0,
-    introTime: 0,
-    cueTime: 0,
-    vinylMode: true,
-    isUserSelected: false,
-    activeLoopBars: null,
-    loopStart: 0,
-    loopEnd: 0
-  });
-
-
   const [djMode, setDjMode] = useState('autodj'); // 'manual', 'autodj', 'jukebox'
   const autoDj = djMode !== 'manual';
-  const [autoDjStyle, setAutoDjStyle] = useState('eq'); // 'eq' (EQ Ramp Mix) or 'bass' (Bassline Swap)
+  const [autoDjStyle, setAutoDjStyle] = useState('eq'); // 'eq' or 'bass'
   const [eqOrder, setEqOrder] = useState(['mid', 'low', 'high']);
   const [playedTrackIds, setPlayedTrackIds] = useState([]);
   const [activeDeckId, setActiveDeckId] = useState('A'); // 'A' or 'B'
-  const [masterBpm, setMasterBpm] = useState(128); // Default to 128 BPM
+  const [masterBpm, setMasterBpm] = useState(128);
   const [transitionState, setTransitionState] = useState({
     active: false,
     phase: 'idle', // 'idle', 'aligning', 'volume', 'mids', 'highs', 'lows', 'boost'
     progress: 0
   });
-
-  const isScratchingRef = useRef({ A: false, B: false });
-  const dragModeRef = useRef({ A: null, B: null }); // 'scratch' | 'bend' | null
-  const lastXRef = useRef({ A: 0, B: 0 });
-  const lastTimeRef = useRef({ A: 0, B: 0 });
-  const bendTimeoutRef = useRef({ A: null, B: null });
 
   const [sessionElapsedTime, setSessionElapsedTime] = useState(0);
   const [fxState, setFxState] = useState({
@@ -87,21 +36,16 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     y: 0.5
   });
 
-  // Refs to prevent multiple transition triggers/warnings in rapid succession
+  // Refs for transitions and scheduling stability
   const transitionActiveRef = useRef(false);
   const transitionCheckedRef = useRef({ A: false, B: false });
-  const lastSecsRef = useRef(0);
+  const transitionTimeoutsRef = useRef([]);
   const elapsedAccumulatorRef = useRef(0);
-  const lastFrameTimeRef = useRef(performance.now());
 
-  // Refs for async timer stability (avoiding stale closures)
   const libraryRef = useRef(library);
   const playedTrackIdsRef = useRef(playedTrackIds);
   const djModeRef = useRef(djMode);
   const masterBpmRef = useRef(masterBpm);
-  const activeDeckIdRef = useRef(activeDeckId);
-  const deckARef = useRef(deckA);
-  const deckBRef = useRef(deckB);
 
   useEffect(() => {
     libraryRef.current = library;
@@ -116,66 +60,79 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   }, [masterBpm]);
 
   useEffect(() => {
-    activeDeckIdRef.current = activeDeckId;
-  }, [activeDeckId]);
+    djModeRef.current = djMode;
+  }, [djMode]);
 
-  useEffect(() => {
-    deckARef.current = deckA;
-    deckBRef.current = deckB;
-  }, [deckA, deckB]);
-
-  // --- REFS FOR WEB AUDIO API ---
+  // Audio Context Ref
   const audioCtxRef = useRef(null);
-  
-  // Deck Audio Nodes Refs
-  const nodesRef = useRef({
-    A: {
-      source: null,
-      buffer: null,
-      lowShelf: null,
-      midPeaking: null,
-      highShelf: null,
-      gainNode: null,
-      startTime: 0,
-      pausedAt: 0,
-      pitch: 0,
-      loopActive: false,
-      loopStart: 0,
-      loopEnd: 0,
-      activeLoopBars: null
+
+  // Instantiating both decks
+  const deckA = useAudioDeck({
+    deckId: 'A',
+    audioCtxRef,
+    initAudio,
+    addLog,
+    onPlaybackEnded: (id) => handlePlaybackEnded(id),
+    onTimeUpdate: (id, time) => checkAutoDjTransition(id, time),
+    onSetActiveDeck: (id) => setActiveDeckId(id),
+    onSeekMarkerCheck: (id, targetTime) => {
+      const deckState = id === 'A' ? deckARef.current : deckBRef.current;
+      if (deckState && targetTime < deckState.outroTime) {
+        transitionCheckedRef.current[id] = false;
+      }
     },
-    B: {
-      source: null,
-      buffer: null,
-      lowShelf: null,
-      midPeaking: null,
-      highShelf: null,
-      gainNode: null,
-      startTime: 0,
-      pausedAt: 0,
-      pitch: 0,
-      loopActive: false,
-      loopStart: 0,
-      loopEnd: 0,
-      activeLoopBars: null
-    }
+    onOutroCueChanged: (id, validatedTime) => {
+      const deckState = id === 'A' ? deckARef.current : deckBRef.current;
+      if (deckState && deckState.currentTime < validatedTime) {
+        transitionCheckedRef.current[id] = false;
+      }
+    },
+    onUpdateTrackCuePoints
   });
 
-  // Animation Frame Ref
-  const animationRef = useRef(null);
-  
-  // Waveform data for drawing
-  const [waveformData, setWaveformData] = useState({ A: null, B: null });
+  const deckB = useAudioDeck({
+    deckId: 'B',
+    audioCtxRef,
+    initAudio,
+    addLog,
+    onPlaybackEnded: (id) => handlePlaybackEnded(id),
+    onTimeUpdate: (id, time) => checkAutoDjTransition(id, time),
+    onSetActiveDeck: (id) => setActiveDeckId(id),
+    onSeekMarkerCheck: (id, targetTime) => {
+      const deckState = id === 'A' ? deckARef.current : deckBRef.current;
+      if (deckState && targetTime < deckState.outroTime) {
+        transitionCheckedRef.current[id] = false;
+      }
+    },
+    onOutroCueChanged: (id, validatedTime) => {
+      const deckState = id === 'A' ? deckARef.current : deckBRef.current;
+      if (deckState && deckState.currentTime < validatedTime) {
+        transitionCheckedRef.current[id] = false;
+      }
+    },
+    onUpdateTrackCuePoints
+  });
 
-  // --- Autoload Scheduler (using extracted module) ---
+  const deckARef = useRef(deckA.state);
+  const deckBRef = useRef(deckB.state);
+
+  useEffect(() => {
+    deckARef.current = deckA.state;
+    deckBRef.current = deckB.state;
+  }, [deckA.state, deckB.state]);
+
+  // Retrieve deck nodes helper
+  const getNodes = (deckId) => {
+    return deckId === 'A' ? deckA.nodes : deckB.nodes;
+  };
+
+  // --- Autoload Scheduler ---
   const autoloadSchedulerRef = useRef(null);
 
-  // findCompatibleTrack wrapper that reads from refs
   const findCompatibleTrack = (currentTrack) => {
     return findCompatible(currentTrack, libraryRef.current, playedTrackIdsRef.current, djModeRef.current);
   };
 
-  // Initialize autoload scheduler lazily (needs loadTrackIntoDeck which is defined below)
   const getAutoloadScheduler = () => {
     if (!autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current = createAutoloadScheduler(
@@ -188,120 +145,75 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   };
 
   useEffect(() => {
-    djModeRef.current = djMode;
     if (djMode === 'manual') {
       if (autoloadSchedulerRef.current) {
         autoloadSchedulerRef.current.cancelAll();
       }
     } else if (djMode === 'jukebox') {
-      // Respect original BPMs: reset pitch faders of both decks to 0
-      updatePitch('A', 0);
-      updatePitch('B', 0);
-      setDeckA(prev => ({ ...prev, pitch: 0 }));
-      setDeckB(prev => ({ ...prev, pitch: 0 }));
+      deckA.updatePitch(0);
+      deckB.updatePitch(0);
       
-      // Update masterBpm to the active track's BPM (if playing/loaded)
-      const currentActiveDeck = activeDeckIdRef.current === 'A' ? deckARef.current : deckBRef.current;
+      const currentActiveDeck = activeDeckId === 'A' ? deckA.state : deckB.state;
       if (currentActiveDeck && currentActiveDeck.track) {
         setMasterBpm(currentActiveDeck.track.bpm);
       }
     } else if (djMode === 'autodj') {
-      // When switching back to Auto-DJ, sync decks to current masterBpm
       const currentMasterBpm = masterBpmRef.current;
-      setDeckA(prev => {
-        if (prev.track) {
-          const pitchVal = ((currentMasterBpm - prev.track.bpm) / prev.track.bpm) * 100;
-          updatePitch('A', pitchVal);
-          return { ...prev, pitch: pitchVal };
-        }
-        return prev;
-      });
-      setDeckB(prev => {
-        if (prev.track) {
-          const pitchVal = ((currentMasterBpm - prev.track.bpm) / prev.track.bpm) * 100;
-          updatePitch('B', pitchVal);
-          return { ...prev, pitch: pitchVal };
-        }
-        return prev;
-      });
+      if (deckA.state.track) {
+        const pitchVal = ((currentMasterBpm - deckA.state.track.bpm) / deckA.state.track.bpm) * 100;
+        deckA.updatePitch(pitchVal);
+      }
+      if (deckB.state.track) {
+        const pitchVal = ((currentMasterBpm - deckB.state.track.bpm) / deckB.state.track.bpm) * 100;
+        deckB.updatePitch(pitchVal);
+      }
     }
   }, [djMode]);
 
+  // Clean timeouts on unmount
+  useEffect(() => {
+    return () => {
+      transitionTimeoutsRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
   // --- INITIALIZE AUDIO CONTEXT ---
-  const initAudio = () => {
+  function initAudio() {
     if (audioCtxRef.current) return;
     
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioContextClass();
     audioCtxRef.current = ctx;
     
-    // Create Deck A and B graphs using the factory
-    const graphA = createDeckGraph(ctx);
-    nodesRef.current.A = {
-      ...nodesRef.current.A,
-      ...graphA
-    };
-
-    const graphB = createDeckGraph(ctx);
-    nodesRef.current.B = {
-      ...nodesRef.current.B,
-      ...graphB
-    };
+    deckA.init(ctx);
+    deckB.init(ctx);
 
     addLog("Web Audio Engine inicializado correctamente.");
-  };
-
-  const updatePitch = (deckId, newPitch) => {
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-    const nodes = nodesRef.current[deckId];
-    
-    if (nodes.source) {
-      const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-      const oldPlaybackRate = 1 + (nodes.pitch / 100);
-      nodes.pausedAt += elapsed * oldPlaybackRate;
-      nodes.startTime = ctx.currentTime;
-      
-      const newPlaybackRate = 1 + (newPitch / 100);
-      nodes.source.playbackRate.value = newPlaybackRate;
-    }
-    nodes.pitch = newPitch;
-  };
+  }
 
   const changeMasterBpm = (newBpm) => {
     setMasterBpm(newBpm);
     
     if (djModeRef.current === 'jukebox') {
-      // In Jukebox mode, the playing tracks always respect their original BPM.
-      // Changing the master BPM fader does not affect deck playback rate.
       return;
     }
     
-    setDeckA(prev => {
-      if (prev.track) {
-        const originalBpm = prev.track.bpm;
-        const pitchOffset = ((newBpm - originalBpm) / originalBpm) * 100;
-        updatePitch('A', pitchOffset);
-        return { ...prev, pitch: pitchOffset };
-      }
-      return prev;
-    });
+    if (deckA.state.track) {
+      const originalBpm = deckA.state.track.bpm;
+      const pitchOffset = ((newBpm - originalBpm) / originalBpm) * 100;
+      deckA.updatePitch(pitchOffset);
+    }
 
-    setDeckB(prev => {
-      if (prev.track) {
-        const originalBpm = prev.track.bpm;
-        const pitchOffset = ((newBpm - originalBpm) / originalBpm) * 100;
-        updatePitch('B', pitchOffset);
-        return { ...prev, pitch: pitchOffset };
-      }
-      return prev;
-    });
+    if (deckB.state.track) {
+      const originalBpm = deckB.state.track.bpm;
+      const pitchOffset = ((newBpm - originalBpm) / originalBpm) * 100;
+      deckB.updatePitch(pitchOffset);
+    }
   };
 
-  // Handle track ending
   const handlePlaybackEnded = (deckId) => {
     addLog(`Deck ${deckId}: Canción finalizada.`);
-    const nodes = nodesRef.current[deckId];
+    const nodes = getNodes(deckId);
     nodes.loopActive = false;
     nodes.activeLoopBars = null;
     nodes.loopStart = 0;
@@ -310,19 +222,24 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       nodes.source.loop = false;
     }
 
-    if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
-      nodesRef.current.A.pausedAt = 0;
-    } else {
-      setDeckB(prev => ({ ...prev, isPlaying: false, currentTime: 0, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
-      nodesRef.current.B.pausedAt = 0;
-    }
+    const deckInst = deckId === 'A' ? deckA : deckB;
+    deckInst.setState(prev => ({
+      ...prev,
+      isPlaying: false,
+      currentTime: 0,
+      activeLoopBars: null,
+      loopStart: 0,
+      loopEnd: 0
+    }));
+    nodes.pausedAt = 0;
   };
 
-  // Trigger the multi-phase EQ Transition
   const triggerAutomatedTransition = (fromDeckId, toDeckId, incomingTrack) => {
     const ctx = audioCtxRef.current;
     if (!ctx) return;
+
+    transitionTimeoutsRef.current.forEach(clearTimeout);
+    transitionTimeoutsRef.current = [];
 
     transitionActiveRef.current = true;
     setTransitionState({
@@ -337,35 +254,22 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
     addLog(`Iniciando mezcla automática: Deck ${fromDeckId} ➔ Deck ${toDeckId}`);
     
-    const nodesFrom = nodesRef.current[fromDeckId];
-    const nodesTo = nodesRef.current[toDeckId];
+    const nodesFrom = getNodes(fromDeckId);
+    const nodesTo = getNodes(toDeckId);
 
     const targetTrack = incomingTrack || targetDeck.track;
     
-    // Set incoming track pausedAt to cue point if not Jukebox
     const cuePoint = (currentDjMode !== 'jukebox' && targetTrack) ? (targetTrack.cue || 0) : 0;
     nodesTo.pausedAt = cuePoint;
-    if (toDeckId === 'A') {
-      setDeckA(prev => ({ ...prev, currentTime: cuePoint }));
-    } else {
-      setDeckB(prev => ({ ...prev, currentTime: cuePoint }));
-    }
     
-    // In Jukebox mode, the incoming track plays at its natural tempo (pitchOffset = 0)
+    const toDeck = toDeckId === 'A' ? deckA : deckB;
+    toDeck.setState(prev => ({ ...prev, currentTime: cuePoint }));
+    
     const pitchOffset = currentDjMode === 'jukebox' ? 0 : (targetTrack ? (((masterBpm - targetTrack.bpm) / targetTrack.bpm) * 100) : 0);
-    
-    nodesRef.current[toDeckId].pitch = pitchOffset;
-    
-    if (toDeckId === 'A') {
-      setDeckA(prev => ({ ...prev, pitch: pitchOffset }));
-      if (nodesRef.current.A.source) {
-        nodesRef.current.A.source.playbackRate.value = 1 + (pitchOffset / 100);
-      }
-    } else {
-      setDeckB(prev => ({ ...prev, pitch: pitchOffset }));
-      if (nodesRef.current.B.source) {
-        nodesRef.current.B.source.playbackRate.value = 1 + (pitchOffset / 100);
-      }
+    nodesTo.pitch = pitchOffset;
+    toDeck.setState(prev => ({ ...prev, pitch: pitchOffset }));
+    if (nodesTo.source) {
+      nodesTo.source.playbackRate.value = 1 + (pitchOffset / 100);
     }
     
     if (currentDjMode === 'jukebox') {
@@ -373,26 +277,16 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       nodesTo.lowShelf.gain.value = 0;
       nodesTo.midPeaking.gain.value = 0;
       nodesTo.highShelf.gain.value = 0;
-      const targetEqUpdate = { low: 0, mid: 0, high: 0 };
-      if (toDeckId === 'A') {
-        setDeckA(prev => ({ ...prev, eq: targetEqUpdate }));
-      } else {
-        setDeckB(prev => ({ ...prev, eq: targetEqUpdate }));
-      }
+      toDeck.setState(prev => ({ ...prev, eq: { low: 0, mid: 0, high: 0 } }));
     } else {
       addLog(`Alineando tempo: Sincronizando Deck ${toDeckId} a ${masterBpm} BPM (${pitchOffset > 0 ? '+' : ''}${pitchOffset.toFixed(2)}% de velocidad)`);
       nodesTo.lowShelf.gain.value = -40;
       nodesTo.midPeaking.gain.value = -40;
       nodesTo.highShelf.gain.value = -40;
-      const targetEqUpdate = { low: -40, mid: -40, high: -40 };
-      if (toDeckId === 'A') {
-        setDeckA(prev => ({ ...prev, eq: targetEqUpdate }));
-      } else {
-        setDeckB(prev => ({ ...prev, eq: targetEqUpdate }));
-      }
+      toDeck.setState(prev => ({ ...prev, eq: { low: -40, mid: -40, high: -40 } }));
     }
 
-    // --- BEAT GRID ALIGNMENT (delegated to transitionEngine) ---
+    // --- BEAT GRID ALIGNMENT ---
     const activeTrack = currentDeck.track;
     const pitchFrom = currentDeck.pitch;
     const pausedAtTo = nodesTo.pausedAt || 0.0;
@@ -401,19 +295,14 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       ctx, nodesFrom, activeTrack, pitchFrom, targetTrack, pitchOffset, pausedAtTo, masterBpm
     );
 
-    playDeckSource(toDeckId, startTime, pitchOffset);
-    if (toDeckId === 'A') {
-      setDeckA(prev => ({ ...prev, isPlaying: true }));
-      nodesRef.current.A.pausedAt = cuePoint;
-    } else {
-      setDeckB(prev => ({ ...prev, isPlaying: true }));
-      nodesRef.current.B.pausedAt = cuePoint;
-    }
+    toDeck.playDeckSource(startTime, pitchOffset);
+    toDeck.setState(prev => ({ ...prev, isPlaying: true }));
+    nodesTo.pausedAt = cuePoint;
 
     const calculatedDelay = startTime - ctx.currentTime;
     addLog(`Alineación rítmica: Lanzando Deck ${toDeckId} (primer golpe a +${(calculatedDelay * 1000).toFixed(0)}ms)`);
 
-    // --- TRANSITION TIMING (delegated to transitionEngine) ---
+    // --- TRANSITION TIMING ---
     const currentDeckDuration = currentDeck.duration;
     const outroTimeFrom = currentDeck.outroTime;
     const introTimeVal = targetTrack ? targetTrack.intro : 90;
@@ -429,13 +318,9 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     
     addLog(`Duración de mezcla: ${transitionDuration.toFixed(1)}s (outro saliente: ${timing.outroDuration.toFixed(1)}s, intro entrante: ${timing.introDuration.toFixed(1)}s) — 3 fases de ${phaseDuration.toFixed(1)}s.`);
 
-    if (toDeckId === 'A') {
-      setDeckA(prev => ({ ...prev, volume: 1.0 }));
-    } else {
-      setDeckB(prev => ({ ...prev, volume: 1.0 }));
-    }
+    toDeck.setState(prev => ({ ...prev, volume: 1.0 }));
 
-    // --- SCHEDULE AUDIO RAMPS (delegated to transitionEngine) ---
+    // --- SCHEDULE AUDIO RAMPS ---
     const fromBpm = activeTrack ? activeTrack.bpm : 120;
     const playbackRateFrom = 1 + (pitchFrom / 100);
 
@@ -455,37 +340,23 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     const scheduler = getAutoloadScheduler();
 
     const scheduleTransitionCompletion = (completionTime, isJukebox) => {
-      setTimeout(() => {
+      const tId = setTimeout(() => {
         setTransitionState({ active: false, phase: 'idle', progress: 0 });
         transitionActiveRef.current = false;
         setActiveDeckId(toDeckId);
         
-        stopDeckSource(fromDeckId);
-        if (fromDeckId === 'A') {
-          setDeckA(prev => ({
-            ...prev,
-            isPlaying: false,
-            currentTime: 0,
-            eq: { low: 0, mid: 0, high: 0 },
-            volume: 1.0
-          }));
-        } else {
-          setDeckB(prev => ({
-            ...prev,
-            isPlaying: false,
-            currentTime: 0,
-            eq: { low: 0, mid: 0, high: 0 },
-            volume: 1.0
-          }));
-        }
+        const fromDeck = fromDeckId === 'A' ? deckA : deckB;
+        fromDeck.stopDeckSource();
+        fromDeck.setState(prev => ({
+          ...prev,
+          isPlaying: false,
+          currentTime: 0,
+          eq: { low: 0, mid: 0, high: 0 },
+          volume: 1.0
+        }));
         resetDeckEq(nodesFrom);
 
-        const defaultEq = { low: 0, mid: 0, high: 0 };
-        if (toDeckId === 'A') {
-          setDeckA(prev => ({ ...prev, eq: defaultEq }));
-        } else {
-          setDeckB(prev => ({ ...prev, eq: defaultEq }));
-        }
+        toDeck.setState(prev => ({ ...prev, eq: { low: 0, mid: 0, high: 0 } }));
 
         if (isJukebox && targetTrack) {
           changeMasterBpm(targetTrack.bpm);
@@ -495,57 +366,68 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
         }
         scheduler.queue(fromDeckId, targetTrack, djModeRef.current);
       }, completionTime * 1000);
+      
+      transitionTimeoutsRef.current.push(tId);
     };
 
     if (currentDjMode === 'jukebox') {
-      setTimeout(() => {
+      const tId1 = setTimeout(() => {
         setTransitionState(prev => ({ ...prev, phase: 'crossfade', progress: 10 }));
         addLog(`Transición Jukebox: Iniciando Crossfade y rampa de tempo hacia ${targetTrack?.bpm} BPM...`);
       }, delay * 1000);
+      transitionTimeoutsRef.current.push(tId1);
 
-      setTimeout(() => {
+      const tId2 = setTimeout(() => {
         setTransitionState(prev => ({ ...prev, progress: 50 }));
       }, (delay + transitionDuration / 2) * 1000);
+      transitionTimeoutsRef.current.push(tId2);
 
-      setTimeout(() => {
+      const tId3 = setTimeout(() => {
         setTransitionState(prev => ({ ...prev, progress: 90 }));
       }, (delay + transitionDuration * 0.9) * 1000);
+      transitionTimeoutsRef.current.push(tId3);
 
       scheduleTransitionCompletion(delay + transitionDuration, true);
     } else if (autoDjStyle === 'bass') {
-      setTimeout(() => {
+      const tId1 = setTimeout(() => {
         setTransitionState(prev => ({ ...prev, phase: 'crossfade', progress: 15 }));
         addLog(`Transición Bassline Swap: Mezclando melodías con curva de potencia constante...`);
       }, delay * 1000);
+      transitionTimeoutsRef.current.push(tId1);
 
-      setTimeout(() => {
+      const tId2 = setTimeout(() => {
         setTransitionState(prev => ({ ...prev, phase: 'lows', progress: 50 }));
         addLog(`¡BASSLINE SWAP! Intercambiando frecuencias bajas en el compás.`);
       }, (delay + transitionDuration / 2) * 1000);
+      transitionTimeoutsRef.current.push(tId2);
 
-      setTimeout(() => {
+      const tId3 = setTimeout(() => {
         setTransitionState(prev => ({ ...prev, progress: 85 }));
       }, (delay + transitionDuration * 0.85) * 1000);
+      transitionTimeoutsRef.current.push(tId3);
 
       scheduleTransitionCompletion(delay + transitionDuration, false);
     } else {
-      setTimeout(() => {
+      const tId1 = setTimeout(() => {
         const b = eqOrder[0];
         setTransitionState(prev => ({ ...prev, phase: PHASE_DETAILS[b].phase, progress: 15 }));
         addLog(`Transición [1/3]: ${PHASE_DETAILS[b].msg}`);
       }, delay * 1000);
+      transitionTimeoutsRef.current.push(tId1);
 
-      setTimeout(() => {
+      const tId2 = setTimeout(() => {
         const b = eqOrder[1];
         setTransitionState(prev => ({ ...prev, phase: PHASE_DETAILS[b].phase, progress: 50 }));
         addLog(`Transición [2/3]: ${PHASE_DETAILS[b].msg}`);
       }, (delay + phaseDuration) * 1000);
+      transitionTimeoutsRef.current.push(tId2);
 
-      setTimeout(() => {
+      const tId3 = setTimeout(() => {
         const b = eqOrder[2];
         setTransitionState(prev => ({ ...prev, phase: PHASE_DETAILS[b].phase, progress: 85 }));
         addLog(`Transición [3/3]: ${PHASE_DETAILS[b].msg}`);
       }, (delay + 2 * phaseDuration) * 1000);
+      transitionTimeoutsRef.current.push(tId3);
 
       scheduleTransitionCompletion(delay + 3 * phaseDuration, false);
     }
@@ -605,659 +487,90 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     initAudio();
 
     const currentDjMode = djModeRef.current;
-
-    // Check if the current track in the deck is user-selected and we are trying to autoload
-    const currentDeck = deckId === 'A' ? deckA : deckB;
+    const currentDeck = deckId === 'A' ? deckA.state : deckB.state;
     const modeLabel = currentDjMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
+    
     if (isAutoload && currentDeck.track && currentDeck.isUserSelected) {
       addLog(`${modeLabel}: Conservando la canción "${currentDeck.track.title}" elegida por el usuario en Deck ${deckId}.`);
       return;
     }
 
-    stopDeckSource(deckId);
-    transitionCheckedRef.current[deckId] = false;
-
-    // Reset loop parameters in nodesRef
-    nodesRef.current[deckId].loopActive = false;
-    nodesRef.current[deckId].loopStart = 0;
-    nodesRef.current[deckId].loopEnd = 0;
-    nodesRef.current[deckId].activeLoopBars = null;
-
-    // If loaded manually by user, clear any pending autoload timer for this deck
     if (!isAutoload && autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current.cancel(deckId);
       addLog(`${modeLabel}: Cancelado pre-cargado automático en Deck ${deckId} debido a carga manual.`);
     }
 
-    // Track played history
     setPlayedTrackIds(prev => prev.includes(track.id) ? prev : [...prev, track.id]);
 
-    nodesRef.current[deckId].buffer = track.buffer;
-    nodesRef.current[deckId].pausedAt = 0;
-
-    const rawData = track.buffer.getChannelData(0);
-    const step = Math.floor(rawData.length / 300);
-    const peaks = [];
-    let maxVal = 0;
-    
-    for (let i = 0; i < 300; i++) {
-      let sum = 0;
-      const startIdx = i * step;
-      for (let j = 0; j < step; j++) {
-        const val = rawData[startIdx + j];
-        sum += val * val;
-      }
-      const rms = Math.sqrt(sum / step);
-      peaks.push(rms);
-      if (rms > maxVal) maxVal = rms;
-    }
-    
-    // Normalize to 1.0 to ensure the waveform fits the canvas height beautifully
-    const normalizedPeaks = maxVal > 0 ? peaks.map(p => p / maxVal) : peaks;
-    setWaveformData(prev => ({ ...prev, [deckId]: normalizedPeaks }));
-
     const initialPitch = currentDjMode === 'jukebox' ? 0 : (((masterBpm - track.bpm) / track.bpm) * 100);
-    nodesRef.current[deckId].pitch = initialPitch;
-    
-    // Position playhead at CUE point if loaded manually and cue is set (> 0)
     const trackCue = track.cue || 0;
     const initialPausedAt = (!isAutoload && trackCue > 0) ? trackCue : 0;
-    nodesRef.current[deckId].pausedAt = initialPausedAt;
 
-    const initialDeckState = {
-      track: track,
-      isPlaying: false,
-      currentTime: initialPausedAt,
-      duration: track.buffer.duration,
-      pitch: initialPitch,
-      volume: 1.0,
-      eq: { low: 0, mid: 0, high: 0 },
-      outroTime: track.outro,
-      introTime: track.intro,
-      cueTime: trackCue,
-      vinylMode: deckId === 'A' ? deckA.vinylMode : deckB.vinylMode,
-      isUserSelected: !isAutoload,
-      activeLoopBars: null,
-      loopStart: 0,
-      loopEnd: 0
-    };
+    transitionCheckedRef.current[deckId] = false;
 
     if (deckId === 'A') {
-      setDeckA(initialDeckState);
-      addLog(`Cargado "${track.title}" en Deck A.`);
+      deckA.loadTrack(track, isAutoload, initialPitch, initialPausedAt);
       if (startAutoTransition) {
         triggerAutomatedTransition('B', 'A', track);
       }
     } else {
-      setDeckB(initialDeckState);
-      addLog(`Cargado "${track.title}" en Deck B.`);
+      deckB.loadTrack(track, isAutoload, initialPitch, initialPausedAt);
       if (startAutoTransition) {
         triggerAutomatedTransition('A', 'B', track);
       }
     }
   };
 
-  const playDeckSource = (deckId, when = 0, pitchOverride = null) => {
-    const ctx = audioCtxRef.current;
-    const nodes = nodesRef.current[deckId];
-    if (!ctx || !nodes.buffer) return;
+  // sessionElapsedTime timer: running 1s intervals when any deck is playing
+  const isPlayingA = deckA.state.isPlaying;
+  const isPlayingB = deckB.state.isPlaying;
 
-    if (nodes.source) {
-      try { nodes.source.stop(); } catch(e) {}
-    }
-
-    const source = ctx.createBufferSource();
-    source.buffer = nodes.buffer;
-    
-    const pitch = pitchOverride !== null ? pitchOverride : nodes.pitch;
-    source.playbackRate.value = 1 + (pitch / 100);
-    nodes.pitch = pitch;
-
-    // Apply loop attributes if active
-    if (nodes.loopActive) {
-      source.loop = true;
-      source.loopStart = nodes.loopStart;
-      source.loopEnd = nodes.loopEnd;
-    }
-
-    source.connect(nodes.lowShelf);
-    nodes.source = source;
-
-    const startOffset = nodes.pausedAt;
-    
-    if (when === 0) {
-      source.start(0, startOffset);
-      nodes.startTime = ctx.currentTime;
-    } else {
-      source.start(when, startOffset);
-      nodes.startTime = when;
-    }
-  };
-
-  const stopDeckSource = (deckId) => {
-    const nodes = nodesRef.current[deckId];
-    if (nodes.source) {
-      try {
-        nodes.source.stop();
-      } catch(e) {}
-      nodes.source = null;
-    }
-  };
-
-  const togglePlay = (deckId) => {
-    initAudio();
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-
-    const deck = deckId === 'A' ? deckA : deckB;
-    const nodes = nodesRef.current[deckId];
-
-    if (!nodes.buffer) return;
-
-    if (deck.isPlaying) {
-      stopDeckSource(deckId);
-      const playbackRate = 1 + (nodes.pitch / 100);
-      const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-      let newPausedAt = nodes.pausedAt + elapsed * playbackRate;
-      if (nodes.loopActive) {
-        const loopDuration = nodes.loopEnd - nodes.loopStart;
-        if (newPausedAt >= nodes.loopEnd && loopDuration > 0) {
-          const timeInLoop = (newPausedAt - nodes.loopStart) % loopDuration;
-          newPausedAt = nodes.loopStart + timeInLoop;
-        }
-      }
-      nodes.pausedAt = newPausedAt;
-      
-      if (deckId === 'A') {
-        setDeckA(prev => ({ ...prev, isPlaying: false }));
-      } else {
-        setDeckB(prev => ({ ...prev, isPlaying: false }));
-      }
-      addLog(`Deck ${deckId}: Pausado.`);
-    } else {
-      playDeckSource(deckId);
-      if (deckId === 'A') {
-        setDeckA(prev => ({ ...prev, isPlaying: true }));
-      } else {
-        setDeckB(prev => ({ ...prev, isPlaying: true }));
-      }
-      setActiveDeckId(deckId);
-      addLog(`Deck ${deckId}: Reproduciendo.`);
-    }
-  };
-
-  const seekTo = (deckId, percent) => {
-    const ctx = audioCtxRef.current;
-    const deck = deckId === 'A' ? deckA : deckB;
-    const nodes = nodesRef.current[deckId];
-    if (!nodes.buffer) return;
-
-    // Clear active loop on manual seek
-    if (nodes.loopActive) {
-      nodes.loopActive = false;
-      nodes.activeLoopBars = null;
-      nodes.loopStart = 0;
-      nodes.loopEnd = 0;
-      if (nodes.source) {
-        nodes.source.loop = false;
-      }
-      const setDeck = deckId === 'A' ? setDeckA : setDeckB;
-      setDeck(prev => ({ ...prev, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
-    }
-
-    const targetTime = percent * deck.duration;
-    nodes.pausedAt = targetTime;
-
-    if (targetTime < deck.outroTime) {
-      transitionCheckedRef.current[deckId] = false;
-    }
-
-    if (deck.isPlaying) {
-      playDeckSource(deckId);
-      nodes.startTime = ctx.currentTime;
-    }
-    
-    if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, currentTime: targetTime }));
-    } else {
-      setDeckB(prev => ({ ...prev, currentTime: targetTime }));
-    }
-    
-    addLog(`Deck ${deckId}: Saltar a ${formatTime(targetTime)}.`);
-  };
-
-  const updateDeckCuePoints = (deckId, markerType, newTime) => {
-    const setDeck = deckId === 'A' ? setDeckA : setDeckB;
-    const currentDeck = deckId === 'A' ? deckARef.current : deckBRef.current;
-    if (!currentDeck.track) return;
-    
-    const trackId = currentDeck.track.id;
-    
-    if (markerType === 'drop') {
-      // Limit drop between cuePoint (if any) and outroTime
-      const cueVal = currentDeck.cueTime || 0;
-      const outroVal = currentDeck.outroTime || currentDeck.duration;
-      const validatedTime = Math.max(cueVal, Math.min(newTime, outroVal));
-
-      setDeck(prev => {
-        if (!prev.track) return prev;
-        return {
-          ...prev,
-          introTime: validatedTime,
-          track: { ...prev.track, intro: validatedTime }
-        };
-      });
-      if (onUpdateTrackCuePoints) {
-        onUpdateTrackCuePoints(trackId, validatedTime, undefined, undefined);
-      }
-    } else if (markerType === 'outro') {
-      // Limit outro to be after drop
-      const dropVal = currentDeck.introTime || 0;
-      const validatedTime = Math.max(dropVal, Math.min(newTime, currentDeck.duration));
-
-      setDeck(prev => {
-        if (!prev.track) return prev;
-        return {
-          ...prev,
-          outroTime: validatedTime,
-          track: { ...prev.track, outro: validatedTime }
-        };
-      });
-      if (onUpdateTrackCuePoints) {
-        onUpdateTrackCuePoints(trackId, undefined, validatedTime, undefined);
-      }
-      if (currentDeck.currentTime < validatedTime) {
-        transitionCheckedRef.current[deckId] = false;
-      }
-    } else if (markerType === 'cue') {
-      // Limit cue between 0 and drop (introTime)
-      const dropVal = currentDeck.introTime || 0;
-      const validatedTime = Math.max(0, Math.min(newTime, dropVal));
-
-      setDeck(prev => {
-        if (!prev.track) return prev;
-        const updates = {
-          cueTime: validatedTime,
-          track: { ...prev.track, cue: validatedTime }
-        };
-        if (!prev.isPlaying) {
-          updates.currentTime = validatedTime;
-        }
-        return { ...prev, ...updates };
-      });
-      if (!currentDeck.isPlaying) {
-        nodesRef.current[deckId].pausedAt = validatedTime;
-      }
-      if (onUpdateTrackCuePoints) {
-        onUpdateTrackCuePoints(trackId, undefined, undefined, validatedTime);
-      }
-    }
-  };
-
-  const jumpToOutro = (deckId) => {
-    const deck = deckId === 'A' ? deckA : deckB;
-    if (!deck.track) return;
-    
-    const targetTime = Math.max(0, deck.outroTime - 5);
-    seekTo(deckId, targetTime / deck.duration);
-    addLog(`Deck ${deckId}: Saltando a 5s antes del OUTRO para demostración.`);
-  };
-
-  const handlePitchChange = (deckId, value) => {
-    const val = parseFloat(value);
-    updatePitch(deckId, val);
-    if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, pitch: val }));
-    } else {
-      setDeckB(prev => ({ ...prev, pitch: val }));
-    }
-  };
-
-  const handleVolumeChange = (deckId, value) => {
-    const val = parseFloat(value);
-    if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, volume: val }));
-    } else {
-      setDeckB(prev => ({ ...prev, volume: val }));
-    }
-  };
-
-  const handleEqChange = (deckId, band, value) => {
-    const val = parseInt(value);
-    const nodes = nodesRef.current[deckId];
-    
-    if (nodes[band === 'low' ? 'lowShelf' : band === 'mid' ? 'midPeaking' : 'highShelf']) {
-      nodes[band === 'low' ? 'lowShelf' : band === 'mid' ? 'midPeaking' : 'highShelf'].gain.value = val;
-    }
-
-    if (deckId === 'A') {
-      setDeckA(prev => ({ ...prev, eq: { ...prev.eq, [band]: val } }));
-    } else {
-      setDeckB(prev => ({ ...prev, eq: { ...prev.eq, [band]: val } }));
-    }
-  };
-
-  // --- PLAYBACK MONITORING LOOP ---
   useEffect(() => {
-    const updatePlaybackProgress = () => {
-      const ctx = audioCtxRef.current;
-      if (!ctx) {
-        lastFrameTimeRef.current = performance.now();
-        animationRef.current = requestAnimationFrame(updatePlaybackProgress);
-        return;
-      }
+    if (!isPlayingA && !isPlayingB) {
+      return;
+    }
 
-      const now = performance.now();
-      const dt = (now - lastFrameTimeRef.current) / 1000;
-      lastFrameTimeRef.current = now;
+    const intervalId = setInterval(() => {
+      elapsedAccumulatorRef.current += 1;
+      setSessionElapsedTime(elapsedAccumulatorRef.current);
+    }, 1000);
 
-      if (deckA.isPlaying || deckB.isPlaying) {
-        elapsedAccumulatorRef.current += dt;
-        const currentSecs = Math.floor(elapsedAccumulatorRef.current);
-        if (currentSecs !== lastSecsRef.current) {
-          lastSecsRef.current = currentSecs;
-          setSessionElapsedTime(currentSecs);
-        }
-      }
+    return () => clearInterval(intervalId);
+  }, [isPlayingA, isPlayingB]);
 
-      if (deckA.isPlaying && !isScratchingRef.current.A) {
-        const nodes = nodesRef.current.A;
-        const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-        const playbackRate = 1 + (nodes.pitch / 100);
-        let current = nodes.pausedAt + elapsed * playbackRate;
-        
-        if (nodes.loopActive) {
-          const loopDuration = nodes.loopEnd - nodes.loopStart;
-          if (current >= nodes.loopEnd && loopDuration > 0) {
-            const timeInLoop = (current - nodes.loopStart) % loopDuration;
-            current = nodes.loopStart + timeInLoop;
-          }
-        }
-        
-        if (current >= deckA.duration) {
-          handlePlaybackEnded('A');
-        } else {
-          setDeckA(prev => ({ ...prev, currentTime: current }));
-          checkAutoDjTransition('A', current);
-        }
-      }
-
-      if (deckB.isPlaying && !isScratchingRef.current.B) {
-        const nodes = nodesRef.current.B;
-        const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-        const playbackRate = 1 + (nodes.pitch / 100);
-        let current = nodes.pausedAt + elapsed * playbackRate;
-        
-        if (nodes.loopActive) {
-          const loopDuration = nodes.loopEnd - nodes.loopStart;
-          if (current >= nodes.loopEnd && loopDuration > 0) {
-            const timeInLoop = (current - nodes.loopStart) % loopDuration;
-            current = nodes.loopStart + timeInLoop;
-          }
-        }
-        
-        if (current >= deckB.duration) {
-          handlePlaybackEnded('B');
-        } else {
-          setDeckB(prev => ({ ...prev, currentTime: current }));
-          checkAutoDjTransition('B', current);
-        }
-      }
-
-      animationRef.current = requestAnimationFrame(updatePlaybackProgress);
-    };
-
-    lastFrameTimeRef.current = performance.now();
-    animationRef.current = requestAnimationFrame(updatePlaybackProgress);
-    return () => cancelAnimationFrame(animationRef.current);
-  }, [deckA.isPlaying, deckA.duration, deckB.isPlaying, deckB.duration, autoDj, transitionState.active]);
-
-  // Channel volume control logic (without crossfader)
+  // Channel volume control logic
   useEffect(() => {
-    const nodesA = nodesRef.current.A;
-    const nodesB = nodesRef.current.B;
+    const nodesA = getNodes('A');
+    const nodesB = getNodes('B');
     if (!nodesA.gainNode || !nodesB.gainNode) return;
 
     if (!transitionState.active) {
-      nodesA.gainNode.gain.value = deckA.volume;
-      nodesB.gainNode.gain.value = deckB.volume;
+      nodesA.gainNode.gain.value = deckA.state.volume;
+      nodesB.gainNode.gain.value = deckB.state.volume;
     }
-  }, [deckA.volume, deckB.volume, transitionState.active]);
-
-  const resyncDecks = () => {
-    if (!deckA.isPlaying || !deckB.isPlaying) {
-      addLog("Sincronización: Ambos decks deben estar reproduciéndose para resincronizar.");
-      return;
-    }
-
-    const masterId = activeDeckId; // 'A' or 'B'
-    const slaveId = masterId === 'A' ? 'B' : 'A';
-    const masterDeck = masterId === 'A' ? deckA : deckB;
-    const slaveDeck = slaveId === 'A' ? deckA : deckB;
-
-    if (!masterDeck.track || !slaveDeck.track) return;
-
-    // 1. BPM/Pitch matching
-    const masterBpmVal = masterBpm;
-    const slaveOriginalBpm = slaveDeck.track.bpm;
-    const targetPitch = ((masterBpmVal - slaveOriginalBpm) / slaveOriginalBpm) * 100;
-
-    updatePitch(slaveId, targetPitch);
-    if (slaveId === 'A') {
-      setDeckA(prev => ({ ...prev, pitch: targetPitch }));
-    } else {
-      setDeckB(prev => ({ ...prev, pitch: targetPitch }));
-    }
-
-    // 2. Phase Alignment
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    const t_master = masterDeck.currentTime;
-    const t_slave = slaveDeck.currentTime;
-
-    const firstBeatOffsetMaster = masterDeck.track.firstBeatOffset || 0.0;
-    const firstBeatOffsetSlave = slaveDeck.track.firstBeatOffset || 0.0;
-
-    const beatDurationMaster = 60 / masterDeck.track.bpm;
-    const beatDurationSlave = 60 / slaveDeck.track.bpm;
-
-    const elapsedMaster = t_master - firstBeatOffsetMaster;
-    const phaseMaster = ((elapsedMaster % beatDurationMaster) + beatDurationMaster) % beatDurationMaster / beatDurationMaster;
-
-    const k = Math.round((t_slave - firstBeatOffsetSlave) / beatDurationSlave - phaseMaster);
-    let targetTime = firstBeatOffsetSlave + (k + phaseMaster) * beatDurationSlave;
-
-    if (targetTime < 0) targetTime = 0;
-    if (targetTime > slaveDeck.duration) targetTime = slaveDeck.duration;
-
-    const nodesSlave = nodesRef.current[slaveId];
-    nodesSlave.pausedAt = targetTime;
-
-    if (slaveDeck.isPlaying) {
-      playDeckSource(slaveId);
-      nodesSlave.startTime = ctx.currentTime;
-    }
-
-    if (slaveId === 'A') {
-      setDeckA(prev => ({ ...prev, currentTime: targetTime }));
-    } else {
-      setDeckB(prev => ({ ...prev, currentTime: targetTime }));
-    }
-
-    addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
-  };
-
-  // FX update — delegates to fxEngine module
-  const updateFx = (active, type, x, y, isInitialTouch = false) => {
-    setFxState({ active, type, x, y });
-    
-    initAudio();
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-    
-    const deckId = activeDeckId;
-    const nodes = nodesRef.current[deckId];
-    
-    applyFx(nodes, ctx, { active, type, x, y, masterBpm, isInitialTouch });
-  };
-
-  const toggleVinylMode = (deckId) => {
-    if (deckId === 'A') {
-      setDeckA(prev => {
-        const nextVal = !prev.vinylMode;
-        addLog(`Deck A: Vinyl Mode ${nextVal ? 'ACTIVADO' : 'DESACTIVADO'}.`);
-        return { ...prev, vinylMode: nextVal };
-      });
-    } else {
-      setDeckB(prev => {
-        const nextVal = !prev.vinylMode;
-        addLog(`Deck B: Vinyl Mode ${nextVal ? 'ACTIVADO' : 'DESACTIVADO'}.`);
-        return { ...prev, vinylMode: nextVal };
-      });
-    }
-  };
-
-  // Scratch refs bundle for the scratch engine
-  const scratchRefs = { isScratchingRef, dragModeRef, lastXRef, lastTimeRef, bendTimeoutRef };
-
-  const startScratch = (deckId, isUpperHalf, clientX, clientY) => {
-    if (transitionState.active) {
-      addLog(`Deck ${deckId}: Interacción bloqueada durante mezcla automática.`);
-      return;
-    }
-    initAudio();
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    const deck = deckId === 'A' ? deckA : deckB;
-    const nodes = nodesRef.current[deckId];
-
-    scratchStart(nodes, ctx, deck, isUpperHalf, clientX, scratchRefs, deckId, playDeckSource);
-  };
-
-  const updateScratch = (deckId, clientX, width) => {
-    if (transitionState.active) return;
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    const deck = deckId === 'A' ? deckA : deckB;
-    const nodes = nodesRef.current[deckId];
-
-    const result = scratchUpdate(nodes, ctx, deck, clientX, width, scratchRefs, deckId);
-
-    if (result) {
-      if (deckId === 'A') {
-        setDeckA(prev => ({ ...prev, currentTime: result.newTime }));
-      } else {
-        setDeckB(prev => ({ ...prev, currentTime: result.newTime }));
-      }
-    }
-  };
-
-  const stopScratch = (deckId, isQuickClick, clickPercent) => {
-    if (transitionState.active) return;
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    const deck = deckId === 'A' ? deckA : deckB;
-    const nodes = nodesRef.current[deckId];
-
-    scratchStop(nodes, ctx, deck, isQuickClick, clickPercent, scratchRefs, deckId, seekTo, playDeckSource, stopDeckSource);
-  };
-
-  const toggleDeckLoop = (deckId, bars) => {
-    initAudio();
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-
-    const deck = deckId === 'A' ? deckA : deckB;
-    const nodes = nodesRef.current[deckId];
-    if (!deck.track || !nodes.buffer) return;
-
-    const setDeck = deckId === 'A' ? setDeckA : setDeckB;
-
-    const bpm = deck.track.bpm || 120;
-    const firstBeatOffset = deck.track.firstBeatOffset || 0;
-    const beatDuration = 60 / bpm;
-    const barDuration = 4 * beatDuration;
-    const loopDuration = bars * barDuration;
-
-    if (nodes.loopActive && nodes.activeLoopBars === bars) {
-      // Case 1: Deactivate loop
-      nodes.loopActive = false;
-      nodes.activeLoopBars = null;
-      nodes.loopStart = 0;
-      nodes.loopEnd = 0;
-
-      if (nodes.source) {
-        nodes.source.loop = false;
-      }
-      setDeck(prev => ({ ...prev, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
-      addLog(`Deck ${deckId}: Loop desactivado.`);
-    } else if (nodes.loopActive) {
-      // Case 2: Resize loop (maintain loopStart, calculate new loopEnd)
-      const newLoopEnd = Math.min(deck.duration, nodes.loopStart + loopDuration);
-      nodes.activeLoopBars = bars;
-      nodes.loopEnd = newLoopEnd;
-
-      if (nodes.source) {
-        nodes.source.loopEnd = newLoopEnd;
-      }
-
-      // If playing and current position is already past the new loopEnd,
-      // restart playback within the new loop bounds.
-      if (nodes.source && deck.isPlaying) {
-        const playbackRate = 1 + (nodes.pitch / 100);
-        const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-        const current = nodes.pausedAt + elapsed * playbackRate;
-        if (current > newLoopEnd) {
-          const newLoopDuration = newLoopEnd - nodes.loopStart;
-          const timeInLoop = (current - nodes.loopStart) % newLoopDuration;
-          nodes.pausedAt = nodes.loopStart + timeInLoop;
-          playDeckSource(deckId);
-        }
-      }
-
-      setDeck(prev => ({ ...prev, activeLoopBars: bars, loopEnd: newLoopEnd }));
-      addLog(`Deck ${deckId}: Loop redimensionado a ${bars} barras (${formatTime(nodes.loopStart)} - ${formatTime(newLoopEnd)}).`);
-    } else {
-      // Case 3: Activate new loop
-      const elapsed = Math.max(0, deck.currentTime - firstBeatOffset);
-      const nearestBeat = Math.round(elapsed / beatDuration);
-      const loopStart = Math.max(0, firstBeatOffset + nearestBeat * beatDuration);
-      const loopEnd = Math.min(deck.duration, loopStart + loopDuration);
-
-      nodes.loopActive = true;
-      nodes.activeLoopBars = bars;
-      nodes.loopStart = loopStart;
-      nodes.loopEnd = loopEnd;
-
-      if (nodes.source) {
-        nodes.source.loop = true;
-        nodes.source.loopStart = loopStart;
-        nodes.source.loopEnd = loopEnd;
-      }
-      setDeck(prev => ({ ...prev, activeLoopBars: bars, loopStart: loopStart, loopEnd: loopEnd }));
-      addLog(`Deck ${deckId}: Loop activado de ${bars} barras (${formatTime(loopStart)} - ${formatTime(loopEnd)}).`);
-    }
-  };
+  }, [deckA.state.volume, deckB.state.volume, transitionState.active]);
 
   return {
-    deckA,
-    deckB,
+    deckA: deckA.state,
+    deckB: deckB.state,
     masterBpm,
     transitionState,
-    waveformData,
+    waveformData: { A: deckA.waveformData, B: deckB.waveformData },
     loadTrackIntoDeck,
-    togglePlay,
-    seekTo,
-    jumpToOutro,
-    handlePitchChange,
-    handleEqChange,
-    handleVolumeChange,
+    togglePlay: (deckId) => (deckId === 'A' ? deckA.togglePlay() : deckB.togglePlay()),
+    seekTo: (deckId, percent) => (deckId === 'A' ? deckA.seekTo(percent) : deckB.seekTo(percent)),
+    jumpToOutro: (deckId) => {
+      const deckState = deckId === 'A' ? deckA.state : deckB.state;
+      if (!deckState.track) return;
+      const targetTime = Math.max(0, deckState.outroTime - 5);
+      const targetPercent = targetTime / deckState.duration;
+      if (deckId === 'A') deckA.seekTo(targetPercent);
+      else deckB.seekTo(targetPercent);
+      addLog(`Deck ${deckId}: Saltando a 5s antes del OUTRO para demostración.`);
+    },
+    handlePitchChange: (deckId, val) => (deckId === 'A' ? deckA.updatePitch(parseFloat(val)) : deckB.updatePitch(parseFloat(val))),
+    handleEqChange: (deckId, band, val) => (deckId === 'A' ? deckA.handleEqChange(band, val) : deckB.handleEqChange(band, val)),
+    handleVolumeChange: (deckId, val) => (deckId === 'A' ? deckA.handleVolumeChange(val) : deckB.handleVolumeChange(val)),
     changeMasterBpm,
     djMode,
     setDjMode,
@@ -1275,11 +588,11 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     audioCtxRef,
     fxState,
     updateFx,
-    toggleVinylMode,
-    startScratch,
-    updateScratch,
-    stopScratch,
-    toggleDeckLoop,
-    updateDeckCuePoints
+    toggleVinylMode: (deckId) => (deckId === 'A' ? deckA.toggleVinylMode() : deckB.toggleVinylMode()),
+    startScratch: (deckId, isUpperHalf, clientX, clientY) => (deckId === 'A' ? deckA.startScratch(isUpperHalf, clientX, clientY, () => transitionState.active) : deckB.startScratch(isUpperHalf, clientX, clientY, () => transitionState.active)),
+    updateScratch: (deckId, clientX, width) => (deckId === 'A' ? deckA.updateScratch(clientX, width, () => transitionState.active) : deckB.updateScratch(clientX, width, () => transitionState.active)),
+    stopScratch: (deckId, isQuickClick, clickPercent) => (deckId === 'A' ? deckA.stopScratch(isQuickClick, clickPercent, () => transitionState.active) : deckB.stopScratch(isQuickClick, clickPercent, () => transitionState.active)),
+    toggleDeckLoop: (deckId, bars) => (deckId === 'A' ? deckA.toggleDeckLoop(bars) : deckB.toggleDeckLoop(bars)),
+    updateDeckCuePoints: (deckId, markerType, newTime) => (deckId === 'A' ? deckA.updateDeckCuePoints(markerType, newTime) : deckB.updateDeckCuePoints(markerType, newTime))
   };
 }
