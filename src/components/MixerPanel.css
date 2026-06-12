@@ -20,7 +20,8 @@
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -66,7 +67,8 @@
 }
 
 .eq-deck-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;

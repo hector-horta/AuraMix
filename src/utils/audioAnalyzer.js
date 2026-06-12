@@ -96,14 +96,11 @@ export async function decodeAudioFile(file, audioCtx) {
     reader.onload = async (e) => {
       try {
         const arrayBuffer = e.target.result;
-        // Decode audio
-        audioCtx.decodeAudioData(arrayBuffer, (decodedData) => {
-          resolve(decodedData);
-        }, (err) => {
-          reject(new Error("Error decodificando audio: " + err.message));
-        });
+        // Decode audio using standard promise API
+        const decodedData = await audioCtx.decodeAudioData(arrayBuffer);
+        resolve(decodedData);
       } catch (err) {
-        reject(err);
+        reject(new Error("Error decodificando audio: " + err.message));
       }
     };
     reader.onerror = () => reject(new Error("Error leyendo el archivo"));
@@ -117,13 +114,12 @@ export async function decodeAudioFile(file, audioCtx) {
 export async function decodeAudioFromUrl(url, audioCtx) {
   const response = await fetch(url);
   const arrayBuffer = await response.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    audioCtx.decodeAudioData(arrayBuffer, (decodedData) => {
-      resolve(decodedData);
-    }, (err) => {
-      reject(new Error("Error decodificando audio desde URL: " + err.message));
-    });
-  });
+  try {
+    const decodedData = await audioCtx.decodeAudioData(arrayBuffer);
+    return decodedData;
+  } catch (err) {
+    throw new Error("Error decodificando audio desde URL: " + err.message);
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Upload, Music, RefreshCw, Trash2 } from 'lucide-react'
 import TrackInfo from './TrackInfo'
 import './LibraryPanel.css'
@@ -18,6 +18,23 @@ export default function LibraryPanel({
   onClearLibrary,
   djMode
 }) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    onFileUpload(e);
+  };
+
   return (
     <section className="panel library-panel">
       <div className="library-header">
@@ -43,7 +60,13 @@ export default function LibraryPanel({
       </div>
 
       {/* Drag & Drop Area */}
-      <div className="drag-drop-zone" onClick={() => document.getElementById('audio-upload').click()}>
+      <div 
+        className={`drag-drop-zone ${isDragging ? 'drag-over' : ''}`}
+        onClick={() => document.getElementById('audio-upload').click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <Upload className="upload-icon" size={28} />
         <span className="drag-drop-text">Arrastra archivos MP3 o haz clic</span>
         <span className="drag-drop-subtext">Archivos libres de DRM (locales)</span>

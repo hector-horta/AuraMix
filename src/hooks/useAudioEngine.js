@@ -550,6 +550,74 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     }
   }, [deckA.state.volume, deckB.state.volume, transitionState.active]);
 
+  const resyncDecks = () => {
+    if (!deckA.state.isPlaying || !deckB.state.isPlaying) {
+      addLog("Sincronización: Ambos decks deben estar reproduciéndose para resincronizar.");
+      return;
+    }
+
+    const masterId = activeDeckId; // 'A' or 'B'
+    const slaveId = masterId === 'A' ? 'B' : 'A';
+    const masterDeck = masterId === 'A' ? deckA : deckB;
+    const slaveDeck = slaveId === 'A' ? deckA : deckB;
+
+    if (!masterDeck.state.track || !slaveDeck.state.track) return;
+
+    // 1. BPM/Pitch matching
+    const masterBpmVal = masterBpm;
+    const slaveOriginalBpm = slaveDeck.state.track.bpm;
+    const targetPitch = ((masterBpmVal - slaveOriginalBpm) / slaveOriginalBpm) * 100;
+
+    slaveDeck.updatePitch(targetPitch);
+
+    // 2. Phase Alignment
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+
+    const t_master = masterDeck.state.currentTime;
+    const t_slave = slaveDeck.state.currentTime;
+
+    const firstBeatOffsetMaster = masterDeck.state.track.firstBeatOffset || 0.0;
+    const firstBeatOffsetSlave = slaveDeck.state.track.firstBeatOffset || 0.0;
+
+    const beatDurationMaster = 60 / masterDeck.state.track.bpm;
+    const beatDurationSlave = 60 / slaveDeck.state.track.bpm;
+
+    const elapsedMaster = t_master - firstBeatOffsetMaster;
+    const phaseMaster = ((elapsedMaster % beatDurationMaster) + beatDurationMaster) % beatDurationMaster / beatDurationMaster;
+
+    const k = Math.round((t_slave - firstBeatOffsetSlave) / beatDurationSlave - phaseMaster);
+    let targetTime = firstBeatOffsetSlave + (k + phaseMaster) * beatDurationSlave;
+
+    if (targetTime < 0) targetTime = 0;
+    if (targetTime > slaveDeck.state.duration) targetTime = slaveDeck.state.duration;
+
+    const nodesSlave = getNodes(slaveId);
+    nodesSlave.pausedAt = targetTime;
+
+    if (slaveDeck.state.isPlaying) {
+      slaveDeck.playDeckSource();
+      nodesSlave.startTime = ctx.currentTime;
+    }
+
+    slaveDeck.setState(prev => ({ ...prev, currentTime: targetTime }));
+
+    addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
+  };
+
+  const updateFx = (active, type, x, y, isInitialTouch = false) => {
+    setFxState({ active, type, x, y });
+    
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    
+    const deckId = activeDeckId;
+    const nodes = getNodes(deckId);
+    
+    applyFx(nodes, ctx, { active, type, x, y, masterBpm, isInitialTouch });
+  };
+
   return {
     deckA: deckA.state,
     deckB: deckB.state,

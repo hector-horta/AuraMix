@@ -13,7 +13,8 @@
 }
 
 .deck-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 2px;

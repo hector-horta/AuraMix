@@ -26,7 +26,8 @@
 }
 
 .aurapad-fx-name {
-  font-family: var(--font-mono);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 0.95rem;
   font-weight: 700;
   text-transform: uppercase;

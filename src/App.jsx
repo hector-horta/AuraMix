@@ -6,6 +6,7 @@ import {
 import { 
   decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible 
 } from './utils/audioAnalyzer'
+import { parseFilename } from './utils/fileAnalyzer'
 import { DEMO_TRACKS } from './constants/demoTracks'
 import { formatTime } from './utils/formatTime'
 import Header from './components/Header'
@@ -79,7 +80,10 @@ export default function App() {
 
   // --- AUDIO FILE UPLOAD & ANALYSIS ---
   const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
+    e.preventDefault();
+    const files = e.target?.files 
+      ? Array.from(e.target.files) 
+      : Array.from(e.dataTransfer?.files || []);
     if (files.length === 0) return;
 
     initAudio();
@@ -107,21 +111,7 @@ export default function App() {
         setAnalyzingProgress("Detectando punto de entrada (Intro)...");
         const introTime = detectIntro(decodedBuffer, bpm);
 
-        const fullName = file.name.replace(/\.[^/.]+$/, ""); // Strip extension
-        let artist = 'Artista Desconocido';
-        let title = fullName;
-
-        const parts = fullName.split(/\s+-\s+/);
-        if (parts.length > 1) {
-          artist = parts[0].trim();
-          title = parts.slice(1).join(' - ').trim();
-        } else {
-          const hyphenParts = fullName.split('-');
-          if (hyphenParts.length > 1) {
-            artist = hyphenParts[0].trim();
-            title = hyphenParts.slice(1).join('-').trim();
-          }
-        }
+        const { artist, title } = parseFilename(file.name);
 
         const newTrack = {
           id: 'local-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),

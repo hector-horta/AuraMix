@@ -29,7 +29,8 @@
 }
 
 .looper-header-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-main);
@@ -105,7 +106,8 @@
 }
 
 .looper-deck-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;

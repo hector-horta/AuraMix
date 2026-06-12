@@ -15,7 +15,8 @@
 }
 
 .library-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-title);
+  font-style: italic;
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 2px;
@@ -43,12 +44,19 @@
   background: rgba(0, 240, 255, 0.02);
 }
 
+.drag-drop-zone.drag-over {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.05);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+}
+
 .upload-icon {
   color: var(--text-dark);
   transition: color var(--transition-fast);
 }
 
-.drag-drop-zone:hover .upload-icon {
+.drag-drop-zone:hover .upload-icon,
+.drag-drop-zone.drag-over .upload-icon {
   color: var(--neon-cyan);
   filter: drop-shadow(0 0 5px var(--neon-cyan));
 }
