@@ -65,6 +65,13 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
 *   **Draggable Cue Points (DROP & OUTRO):** Users can manually override Auto-DJ cue suggestions by clicking and dragging the green DROP and orange OUTRO markers directly on the waveform. A 24px wide transparent vertical wrapper provides a generous interaction target for mouse and touch dragging, while keeping the visual lines thin. Custom cue points update both the active deck state and the track library in real time.
 *   **Clear Playlist Button:** A "Limpiar Playlist" button in the library panel allows clearing all loaded tracks from the selector list with a single click.
+*   **AuraPad X/Y Performance Effects Pad:** An interactive X/Y touchpad (the second tab "AuraPad" in the Mixer Panel) that allows real-time modulation of professional audio effects on the active deck. The user can drag or tap on the pad to control parameters dynamically across the X (horizontal) and Y (vertical) axes:
+    *   **Filter (Dual LowPass/HighPass Filter):** Dragging left activates a Low-pass filter (20Hz - 20kHz), dragging right activates a High-pass filter (20Hz - 20kHz), and the center acts as a bypass. The Y-axis controls resonance (Q factor).
+    *   **Delay (Feedback Delay):** Space-based echo delay from 10ms to 1s. X-axis controls delay time, and Y-axis controls feedback amount (up to 90%).
+    *   **Echo (Long Space Echo):** Smooth echo with feedback. X-axis controls delay decay/duration (0.2s - 2s), and Y-axis controls wet mix level (0% - 100%).
+    *   **Flanger (Metallic LFO Sweeper):** A sweeping metal comb filter. X-axis controls LFO rate (0.1Hz - 5Hz), and Y-axis controls depth.
+    *   **Beat Repeat (Quantized Stutter):** Audio freeze and stutter loop. X-axis controls grid subdivision (1/4 down to 1/64 beat), and Y-axis controls mix percentage.
+    *   **Tape Stop (Vinyl Brake):** Slows down playback speed. X-axis controls the slowdown duration (0.1s - 2.1s).
 *   **AuraLoops Beat-Aligned Quantized Looper:** A third tab ("AuraLoops") in the Mixer Panel provides a grid of performance pads (4, 8, 12, 16 bars) per deck. Loop triggers snap to the track's beat grid, allowing loops of 16, 32, 48, or 64 beats. Selecting a different pad resizes the loop while preserving the loop start position, and pressing the active pad again deactivates it.
 *   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic 2-column UI styled with neon accents, premium typography (*Jost* and *Space Grotesk*), and smooth micro-animations. The center columns expand horizontally to provide a spacious console layout for playback, effects, and looping pads.
 
@@ -279,6 +286,7 @@ AuraMix/
 │   │   ├── Waveform.jsx / Waveform.css
 │   │   ├── MasterBpmSelector.jsx / MasterBpmSelector.css
 │   │   ├── MixerPanel.jsx / MixerPanel.css
+│   │   ├── AuraPad.jsx / AuraPad.css
 │   │   ├── LooperPad.jsx / LooperPad.css
 │   │   └── EqKnob.jsx
 │   │
