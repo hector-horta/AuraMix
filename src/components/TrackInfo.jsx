@@ -43,6 +43,10 @@ export default function TrackInfo({
   const introDuration = track.intro || 16.0;
   const isTimeMatch = djMode !== 'jukebox' && activeTrack && !isCurrentTrack && (Math.abs(introDuration - outroDuration) <= 5);
 
+  const isHighsDriftWarning = activeTrack && 
+                             activeTrack.highsPosition === 'forward' && 
+                             track.highsPosition === 'backward';
+
   // Visual classes showing compatibility status (lights up all as compatible in manual mode)
   const isIncompatible = djMode === 'manual' ? false : isActuallyIncompatible;
   const isCompatible = djMode === 'manual' ? (activeTrack && !isCurrentTrack) : isActuallyCompatible;
@@ -60,11 +64,27 @@ export default function TrackInfo({
             <span className="meta-badge badge-bpm">{track.bpm} BPM</span>
           </div>
         </div>
-        <div className="track-item-row">
+        <div className="track-item-row" style={{ alignItems: 'flex-start' }}>
           <p className="track-item-artist">{track.artist}</p>
-          <div className="track-item-meta">
-            {track.isDemo && <span className="meta-badge badge-demo">Demo</span>}
-            <span className="meta-badge badge-key">{track.key}</span>
+          <div className="track-item-meta-column">
+            <div className="track-item-meta">
+              {track.isDemo && <span className="meta-badge badge-demo">Demo</span>}
+              <span className="meta-badge badge-key">{track.key}</span>
+            </div>
+            {track.highsPosition && (
+              <span 
+                className={`highs-indicator indicator-${track.highsPosition} ${isHighsDriftWarning ? 'drift-warning' : ''}`}
+                title={
+                  isHighsDriftWarning 
+                    ? "Advertencia: Pérdida de energía (Agudos adelante ➔ atrás)" 
+                    : track.highsPosition === 'forward'
+                      ? "Agudos hacia adelante: Sonido brillante/presente"
+                      : "Agudos hacia atrás: Sonido suave/atenuado"
+                }
+              >
+                {track.highsPosition === 'forward' ? '→' : '←'}
+              </span>
+            )}
           </div>
         </div>
       </div>

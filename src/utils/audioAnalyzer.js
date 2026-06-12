@@ -533,3 +533,60 @@ export function detectIntro(audioBuffer, bpm) {
   return parseFloat(introTime.toFixed(2));
 }
 
+/**
+ * Detect high-frequency positioning ("forward" vs "backward")
+ * Compares the RMS of the high-pass filtered audio (above 7.5 kHz)
+ * with the RMS of the unfiltered audio in a 10-second segment from the middle of the track.
+ */
+export async function detectHighsPosition(audioBuffer) {
+  try {
+    const duration = audioBuffer.duration;
+    const sampleRate = audioBuffer.sampleRate;
+    const data = audioBuffer.getChannelData(0);
+
+    const scanDuration = Math.min(10, duration);
+    const scanStartSec = Math.max(0, duration * 0.5 - scanDuration * 0.5);
+    const startSample = Math.floor(scanStartSec * sampleRate);
+    const numSamples = Math.floor(scanDuration * sampleRate);
+
+    let sumSquaresUnfiltered = 0;
+    for (let i = 0; i < numSamples; i++) {
+      const idx = startSample + i;
+      if (idx < data.length) {
+        const val = data[idx];
+        sumSquaresUnfiltered += val * val;
+      }
+    }
+    const rmsUnfiltered = Math.sqrt(sumSquaresUnfiltered / numSamples) || 0.0001;
+
+    const offlineCtx = new OfflineAudioContext(1, numSamples, sampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+
+    const filter = offlineCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 7500;
+    filter.Q.value = 1.0;
+
+    source.connect(filter);
+    filter.connect(offlineCtx.destination);
+    source.start(0, scanStartSec, scanDuration);
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    const filteredData = renderedBuffer.getChannelData(0);
+
+    let sumSquaresFiltered = 0;
+    for (let i = 0; i < filteredData.length; i++) {
+      const val = filteredData[i];
+      sumSquaresFiltered += val * val;
+    }
+    const rmsFiltered = Math.sqrt(sumSquaresFiltered / filteredData.length) || 0.0001;
+
+    const ratio = rmsFiltered / rmsUnfiltered;
+    return ratio >= 0.075 ? 'forward' : 'backward';
+  } catch (err) {
+    console.error("Error analyzing highs position:", err);
+    return 'forward';
+  }
+}
+

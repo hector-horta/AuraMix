@@ -4,7 +4,7 @@ import {
   Volume2, Disc, Check, AlertCircle, Trash2, FolderOpen, RefreshCw 
 } from 'lucide-react'
 import { 
-  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible 
+  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible, detectHighsPosition 
 } from './utils/audioAnalyzer'
 import { parseFilename } from './utils/fileAnalyzer'
 import { DEMO_TRACKS } from './constants/demoTracks'
@@ -111,6 +111,9 @@ export default function App() {
         setAnalyzingProgress("Detectando punto de entrada (Intro)...");
         const introTime = detectIntro(decodedBuffer, bpm);
 
+        setAnalyzingProgress("Analizando posición de agudos...");
+        const highsPosition = await detectHighsPosition(decodedBuffer);
+
         const { artist, title } = parseFilename(file.name);
 
         const newTrack = {
@@ -122,6 +125,7 @@ export default function App() {
           keyName: keyData.keyName,
           outro: outroTime,
           intro: introTime,
+          highsPosition: highsPosition,
           cue: 0,
           firstBeatOffset: firstBeatOffset,
           duration: decodedBuffer.duration,
@@ -167,6 +171,9 @@ export default function App() {
       setAnalyzingProgress("Analizando intro...");
       const introTime = detectIntro(decodedBuffer, bpm);
 
+      setAnalyzingProgress("Analizando agudos...");
+      const highsPosition = await detectHighsPosition(decodedBuffer);
+
       const analyzedTrack = {
         ...demoTrack,
         bpm: demoTrack.bpm !== undefined ? demoTrack.bpm : bpm,
@@ -176,6 +183,7 @@ export default function App() {
         intro: demoTrack.intro !== undefined ? demoTrack.intro : introTime,
         cue: demoTrack.cue !== undefined ? demoTrack.cue : 0,
         firstBeatOffset: demoTrack.firstBeatOffset !== undefined ? demoTrack.firstBeatOffset : firstBeatOffset,
+        highsPosition: demoTrack.highsPosition !== undefined ? demoTrack.highsPosition : highsPosition,
         duration: decodedBuffer.duration,
         buffer: decodedBuffer
       };

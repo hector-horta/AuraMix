@@ -322,3 +322,41 @@
   vertical-align: middle;
 }
 
+.track-item-meta-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.highs-indicator {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 900;
+  padding-right: 0.15rem;
+  user-select: none;
+  cursor: help;
+  line-height: 1;
+}
+
+.highs-indicator.indicator-forward {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);
+}
+
+.highs-indicator.indicator-backward {
+  color: var(--text-dark);
+}
+
+.highs-indicator.drift-warning {
+  color: var(--neon-orange);
+  text-shadow: 0 0 5px rgba(255, 159, 28, 0.5);
+  animation: pulse-glow-orange 1.5s infinite alternate;
+}
+
+@keyframes pulse-glow-orange {
+  0% { opacity: 0.7; filter: brightness(0.9); }
+  100% { opacity: 1; filter: brightness(1.1); }
+}
+

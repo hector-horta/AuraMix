@@ -17,6 +17,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
   - [4. Outro Detection](#4-outro-detection)
   - [5. Harmonic Compatibility (Camelot Wheel)](#5-harmonic-compatibility-camelot-wheel)
   - [6. Tempo/BPM Compatibility](#6-tempobpm-compatibility)
+  - [7. High-Frequency (Highs) Position Detection (Forward vs. Backward)](#7-high-frequency-highs-position-detection-forward-vs-backward)
 - [Auto-DJ Transition Engine](#-auto-dj-transition-engine)
   - [Tempo Matching (Pitch Matching)](#tempo-matching-pitch-matching)
   - [Rhythmic Alignment (Beat Grid Alignment)](#rhythmic-alignment-beat-grid-alignment)
@@ -56,13 +57,16 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
     *   **Played Checkmark (`✓`):** Indicates a track has been played and won't be repeated by the Auto-DJ yet.
     *   **Fallback Warning (`!`):** Displayed on played tracks when the Auto-DJ has exhausted $\ge 75\%$ of the library, warning that these songs are now eligible to be repeated.
     *   **Transition Timing Match Clock Badge (Clock Icon):** Displays when the track's intro length matches the outro duration of the currently playing track (within ±5 seconds), highlighting structurally compatible transition opportunities.
+    *   **High-Frequency (Highs) Position Indicator (`→` / `←`):** Identifies whether the track has forward (bright, present) or backward (receded, warm) high-frequency structures.
+    *   **Energy Loss Drift Warning:** Pulsates with a neon orange alert when an incoming track transitions from forward agudos (`→`) to backward agudos (`←`) to warn the DJ of a potential loss of mixing energy.
+*   **Active Deck Overwrite Protection:** Load buttons (Deck A/B) are disabled with dynamic tooltips if the target deck is currently playing a track, preventing accidental overwrites and keeping mixing momentum alive.
 *   **Manual Override / User Priority Rule:** Auto-DJ respects user-selected tracks manually loaded onto an idle deck. It will never overwrite the human DJ's choice of song with an autoloaded track, ensuring manual overrides are preserved.
 *   **Auto-DJ 10-Second Prep Autoload:** After a mix completes, Auto-DJ waits 10 seconds. If the user doesn't load a song manually, it automatically loads a compatible track from the library into the stopped deck (without auto-playing), keeping the decks prepared for the next transition.
 *   **Always-Visible Alert Banner with Neon Animation:** The "Mezcla en curso" label stays visible (styled as "MEZCLA INACTIVA" in a dimmed, greyed-out offline state when idle) and activates with a flickering neon ignition animation on transition start, transitioning through colors matching the current EQ precedence phase (Cyan/Purple/Pink), and fading out smoothly back to the idle state on completion.
 *   **Draggable Cue Points (DROP & OUTRO):** Users can manually override Auto-DJ cue suggestions by clicking and dragging the green DROP and orange OUTRO markers directly on the waveform. A 24px wide transparent vertical wrapper provides a generous interaction target for mouse and touch dragging, while keeping the visual lines thin. Custom cue points update both the active deck state and the track library in real time.
 *   **Clear Playlist Button:** A "Limpiar Playlist" button in the library panel allows clearing all loaded tracks from the selector list with a single click.
 *   **AuraLoops Beat-Aligned Quantized Looper:** A third tab ("AuraLoops") in the Mixer Panel provides a grid of performance pads (4, 8, 12, 16 bars) per deck. Loop triggers snap to the track's beat grid, allowing loops of 16, 32, 48, or 64 beats. Selecting a different pad resizes the loop while preserving the loop start position, and pressing the active pad again deactivates it.
-*   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic 2-column UI styled with neon accents, premium typography (*Outfit* and *Space Grotesk*), and smooth micro-animations. The center columns expand horizontally to provide a spacious console layout for playback, effects, and looping pads.
+*   **Premium Cyberpunk Design & Layout Ergonomics:** Glassmorphic 2-column UI styled with neon accents, premium typography (*Jost* and *Space Grotesk*), and smooth micro-animations. The center columns expand horizontally to provide a spacious console layout for playback, effects, and looping pads.
 
 ---
 
@@ -72,7 +76,7 @@ The system utilizes client-side Digital Signal Processing (DSP) to detect the te
 *   **Audio Engine:** Web Audio API (`AudioContext`, `OfflineAudioContext`, `BiquadFilterNode` for EQs, `GainNode` for volume/crossfade, `AudioBufferSourceNode` for source playback).
 *   **Icons:** [Lucide React](https://lucide.dev/)
 *   **Styling:** Vanilla CSS3 with CSS variables, backdrop blur filters, and neon glows.
-*   **Typography:** *Outfit* (titles and UI) and *Space Grotesk* (metrics and stats).
+*   **Typography:** *Jost* (titles and UI) and *Space Grotesk* (metrics and stats).
 
 ---
 
@@ -117,6 +121,16 @@ To ensure natural sound quality and prevent extreme pitch bending when mixing, t
 *   The original BPM of the target track is within **±5%** of the currently playing track's BPM.
 *   This ensures that the pitch fader adjustment (limited to the ±10% Pioneer standard) can lock the BPMs without causing unwanted vocal or instrumental distortion.
 *   Incompatible tracks are visually dimmed in the library list, indicating they are not recommended for automated or manual transitions.
+
+### 7. High-Frequency (Highs) Position Detection (Forward vs. Backward)
+To prevent unexpected energy loss or spatial imbalance during transitions due to the mix depth of high-frequency percussion elements (such as hi-hats sounding too upfront or receded):
+1.  **High-Frequency Isolation (Highpass Filter):** A 10-second segment from the exact midpoint of the track is loaded into an `OfflineAudioContext`. The signal is routed through a `highpass` filter with a cutoff frequency of **7.5 kHz** (with a Q factor of 1.0) to isolate high-end air, transients, and hi-hats.
+2.  **RMS Energy Comparison:** The system calculates the Root Mean Square (RMS) energy of both the raw unfiltered segment ($RMS_{\text{unfiltered}}$) and the highpass-filtered segment ($RMS_{\text{filtered}}$).
+3.  **Highs Position Ratio:** The brightness ratio is computed as:
+    $$\text{brightnessRatio} = \frac{RMS_{\text{filtered}}}{RMS_{\text{unfiltered}}}$$
+    *   **Forward Highs (`→`):** If $\text{brightnessRatio} \ge 0.075$, the highs are considered prominent, crisp, and pushed forward in the stereo field.
+    *   **Backward Highs (`←`):** If $\text{brightnessRatio} < 0.075$, the highs are considered warm, smooth, or receded backward in the mix.
+4.  **Acoustic Energy Drop Warning:** While mixing from backward to forward highs feels natural or energetic, transitioning from forward highs (`→`) to backward highs (`←`) can create a sudden drop in treble energy, making the mix sound empty or dull. The system flags this combination with a pulsing neon orange warning animation (`drift-warning`) beneath the key badge of the incoming track to alert the DJ.
 
 
 ## 🎛️ DJ Mode Transition Engine
