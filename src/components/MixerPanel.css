@@ -22,8 +22,8 @@
   color: var(--text-muted);
   font-family: var(--font-title);
   font-style: italic;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
@@ -69,8 +69,8 @@
 .eq-deck-title {
   font-family: var(--font-title);
   font-style: italic;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 900;
   text-transform: uppercase;
 }
 .eq-deck-a { color: var(--neon-cyan); }
