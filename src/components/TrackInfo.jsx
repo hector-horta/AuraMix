@@ -54,16 +54,18 @@ export default function TrackInfo({
       className={`track-item ${isNew ? 'track-item-new' : ''} ${isLoadedOnA ? 'playing-a' : ''} ${isLoadedOnB ? 'playing-b' : ''} ${isIncompatible ? 'track-incompatible' : ''} ${isCompatible ? 'track-compatible' : ''}`}
     >
       <div className="track-item-main">
-        <div className="track-item-title-group">
-          <p className="track-item-title">
-            {track.title}
-          </p>
-          <p className="track-item-artist">{track.artist}</p>
+        <div className="track-item-row">
+          <p className="track-item-title">{track.title}</p>
+          <div className="track-item-meta">
+            <span className="meta-badge badge-bpm">{track.bpm} BPM</span>
+          </div>
         </div>
-        <div className="track-item-meta">
-          {track.isDemo && <span className="meta-badge badge-demo">Demo</span>}
-          <span className="meta-badge badge-bpm">{track.bpm} BPM</span>
-          <span className="meta-badge badge-key">{track.key}</span>
+        <div className="track-item-row">
+          <p className="track-item-artist">{track.artist}</p>
+          <div className="track-item-meta">
+            {track.isDemo && <span className="meta-badge badge-demo">Demo</span>}
+            <span className="meta-badge badge-key">{track.key}</span>
+          </div>
         </div>
       </div>
       
