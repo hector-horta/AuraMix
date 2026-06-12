@@ -164,6 +164,21 @@
   transition: all var(--transition-fast);
 }
 
+.load-deck-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-dark);
+}
+
+.load-deck-btn:disabled:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.03) !important;
+  color: var(--text-dark) !important;
+  box-shadow: none !important;
+}
+
 .load-deck-btn-a:hover {
   background: rgba(0, 240, 255, 0.1);
   color: var(--neon-cyan);

@@ -72,16 +72,18 @@ export default function TrackInfo({
       <div className="track-item-actions">
         <div className="load-buttons">
           <button 
-            disabled={isLoadedOnA || isLoadedOnB}
+            disabled={isLoadedOnA || isLoadedOnB || deckA.isPlaying}
             onClick={() => onLoadTrack(track, 'A')}
             className="load-deck-btn load-deck-btn-a"
+            title={deckA.isPlaying ? "El Deck A está reproduciendo. No se puede sobrescribir." : "Cargar en Deck A"}
           >
             Deck A
           </button>
           <button 
-            disabled={isLoadedOnA || isLoadedOnB}
+            disabled={isLoadedOnA || isLoadedOnB || deckB.isPlaying}
             onClick={() => onLoadTrack(track, 'B')}
             className="load-deck-btn load-deck-btn-b"
+            title={deckB.isPlaying ? "El Deck B está reproduciendo. No se puede sobrescribir." : "Cargar en Deck B"}
           >
             Deck B
           </button>
