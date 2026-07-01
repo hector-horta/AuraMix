@@ -8,11 +8,13 @@ const FX_TYPES = [
   { name: 'Echo', color: 'rgba(0, 255, 170, 1)', bgGlow: 'rgba(0, 255, 170, 0.15)', desc: 'Long Space Echo with Mix', xParam: 'Time', yParam: 'Wet Mix' },
   { name: 'Flanger', color: 'var(--neon-pink)', bgGlow: 'rgba(255, 0, 127, 0.15)', desc: 'Metallic LFO Sweeper', xParam: 'LFO Rate', yParam: 'Depth' },
   { name: 'Beat Repeat', color: 'rgba(255, 100, 0, 1)', bgGlow: 'rgba(255, 100, 0, 0.15)', desc: 'Audio Freeze & Stutter Loop', xParam: 'Division (1/4 - 1/64)', yParam: 'Mix' },
-  { name: 'Tape Stop', color: 'rgba(255, 215, 0, 1)', bgGlow: 'rgba(255, 215, 0, 0.15)', desc: 'Vinyl Slowdown Effect', xParam: 'Stop Duration', yParam: 'Unused' }
+  { name: 'Tape Stop', color: 'rgba(255, 215, 0, 1)', bgGlow: 'rgba(255, 215, 0, 0.15)', desc: 'Vinyl Slowdown Effect', xParam: 'Stop Duration', yParam: 'Unused' },
+  { name: 'Scratch', color: 'rgba(255, 159, 28, 1)', bgGlow: 'rgba(255, 159, 28, 0.15)', desc: 'Vinyl Scratch & Pitch Bend', xParam: 'Position', yParam: 'Scratch / Nudge' }
 ];
 
 export default function AuraPad({ fxState, onUpdateFx }) {
   const padRef = useRef(null);
+  const touchStartRef = useRef({ time: 0, x: 0 });
   const [selectedFx, setSelectedFx] = useState('Filter');
   const [isPressing, setIsPressing] = useState(false);
   const [coords, setCoords] = useState({ x: 0.5, y: 0.5 });
@@ -21,6 +23,7 @@ export default function AuraPad({ fxState, onUpdateFx }) {
 
   const handlePointerDown = (e) => {
     setIsPressing(true);
+    touchStartRef.current = { time: performance.now(), x: e.clientX };
     e.target.setPointerCapture(e.pointerId);
     updateCoords(e, true);
   };
@@ -33,7 +36,12 @@ export default function AuraPad({ fxState, onUpdateFx }) {
   const handlePointerUp = (e) => {
     setIsPressing(false);
     e.target.releasePointerCapture(e.pointerId);
-    onUpdateFx(false, selectedFx, coords.x, coords.y);
+    
+    const elapsed = performance.now() - touchStartRef.current.time;
+    const distance = Math.abs(e.clientX - touchStartRef.current.x);
+    const isQuickClick = distance < 6 && elapsed < 220;
+
+    onUpdateFx(false, selectedFx, coords.x, coords.y, false, isQuickClick);
   };
 
   const updateCoords = (e, isInitialTouch) => {
@@ -82,6 +90,8 @@ export default function AuraPad({ fxState, onUpdateFx }) {
         return '1/64 Beat';
       case 'Tape Stop':
         return `${(0.1 + x * 2.0).toFixed(1)} s`;
+      case 'Scratch':
+        return `${Math.round(x * 100)}%`;
       default:
         return `${Math.round(x * 100)}%`;
     }
@@ -103,6 +113,8 @@ export default function AuraPad({ fxState, onUpdateFx }) {
         return `Mix: ${Math.round(y * 100)}%`;
       case 'Tape Stop':
         return '---';
+      case 'Scratch':
+        return y > 0.5 ? 'Scratch Zone (Vinyl)' : 'Nudge Zone (Pitch)';
       default:
         return `${Math.round(y * 100)}%`;
     }
@@ -174,6 +186,14 @@ export default function AuraPad({ fxState, onUpdateFx }) {
 
           {selectedFx === 'Filter' && (
             <div className="pad-center-guide" title="Center Neutral Zone"></div>
+          )}
+
+          {selectedFx === 'Scratch' && (
+            <>
+              <div className="pad-scratch-divider"></div>
+              <div className="pad-scratch-zone-label top">SCRATCH ZONE</div>
+              <div className="pad-scratch-zone-label bottom">NUDGE ZONE</div>
+            </>
           )}
 
           {/* Draggable indicator handle */}

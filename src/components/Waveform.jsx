@@ -12,9 +12,6 @@ export default function Waveform({
   playedColor,
   unplayedColor,
   vinylMode,
-  onScratchStart,
-  onScratchMove,
-  onScratchEnd,
   onSeek,
   onMarkerMove,
   activeLoopBars,
@@ -71,65 +68,39 @@ export default function Waveform({
       ctx.setLineDash([]);
     }
 
-    // Draw scratch/nudge zone dividers and overlays when vinyl mode is active
-    if (vinylMode) {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(0, height / 2);
-      ctx.lineTo(width, height / 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.font = '7px monospace';
-      ctx.fillText('SCRATCH ZONE', 8, 11);
-      ctx.fillText('NUDGE ZONE', 8, height - 6);
-    }
-  }, [peaks, currentTime, duration, playedColor, unplayedColor, vinylMode, activeLoopBars, loopStart, loopEnd]);
+  }, [peaks, currentTime, duration, playedColor, unplayedColor, activeLoopBars, loopStart, loopEnd]);
 
   const handleMouseDown = (e) => {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     
     const isTouch = e.type === 'touchstart';
-    const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-    const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-
-    const clickY = clientY - rect.top;
-    const isUpperHalf = clickY < rect.height / 2;
-
-    const startTime = performance.now();
-    const startX = clientX;
-
-    onScratchStart(isUpperHalf, clientX, clientY, rect);
-
-    const handleMouseMove = (moveEvent) => {
-      const currentX = moveEvent.type === 'touchmove' ? moveEvent.touches[0].clientX : moveEvent.clientX;
-      onScratchMove(currentX, rect.width);
+    const getPercent = (clientX) => {
+      return Math.max(0, Math.min(1.0, (clientX - rect.left) / rect.width));
     };
 
-    const handleMouseUp = (upEvent) => {
-      const endX = upEvent.type === 'touchend' ? upEvent.changedTouches[0].clientX : upEvent.clientX;
-      
-      const distance = Math.abs(endX - startX);
-      const elapsed = performance.now() - startTime;
-      
-      const isQuickClick = distance < 6 && elapsed < 220;
-      const clickPercent = Math.max(0, Math.min(1.0, (endX - rect.left) / rect.width));
+    const initialClientX = isTouch ? e.touches[0].clientX : e.clientX;
+    onSeek(getPercent(initialClientX));
 
-      onScratchEnd(isQuickClick, clickPercent);
+    const handleMouseMove = (moveEvent) => {
+      const clientX = moveEvent.type === 'touchmove' ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      onSeek(getPercent(clientX));
+    };
 
+    const handleMouseUp = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('touchmove', handleMouseMove);
       window.removeEventListener('touchend', handleMouseUp);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleMouseMove, { passive: true });
-    window.addEventListener('touchend', handleMouseUp);
+    if (isTouch) {
+      window.addEventListener('touchmove', handleMouseMove, { passive: true });
+      window.addEventListener('touchend', handleMouseUp);
+    } else {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
   };
 
   const handleMarkerStart = (markerType, e) => {

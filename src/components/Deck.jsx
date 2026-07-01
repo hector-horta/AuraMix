@@ -14,9 +14,6 @@ export default function Deck({
   onJumpToOutro,
   onPitchChange,
   onToggleVinyl,
-  onScratchStart,
-  onScratchMove,
-  onScratchEnd,
   onMarkerMove,
   accentColor,
   djMode
@@ -95,9 +92,6 @@ export default function Deck({
               playedColor={playedColor}
               unplayedColor={unplayedColor}
               vinylMode={deck.vinylMode}
-              onScratchStart={onScratchStart}
-              onScratchMove={onScratchMove}
-              onScratchEnd={onScratchEnd}
               onSeek={onSeek}
               onMarkerMove={(markerType, newTime) => onMarkerMove && onMarkerMove(deckId, markerType, newTime)}
               activeLoopBars={deck.activeLoopBars}

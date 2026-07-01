@@ -260,3 +260,38 @@
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-6px) rotate(180deg); }
 }
+
+/* Scratch Divider and Zones in AuraPad */
+.pad-scratch-divider {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  border-top: 1px dashed rgba(255, 159, 28, 0.25);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pad-scratch-zone-label {
+  position: absolute;
+  left: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(255, 159, 28, 0.4);
+  text-shadow: 0 0 4px rgba(255, 159, 28, 0.1);
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+.pad-scratch-zone-label.top {
+  top: 12px;
+}
+
+.pad-scratch-zone-label.bottom {
+  bottom: 12px;
+}

@@ -281,9 +281,6 @@ export default function App() {
               onJumpToOutro={() => jumpToOutro('A')}
               onPitchChange={(val) => handlePitchChange('A', val)}
               onToggleVinyl={() => toggleVinylMode('A')}
-              onScratchStart={(isUpperHalf, clientX, clientY, rect) => startScratch('A', isUpperHalf, clientX, clientY, rect)}
-              onScratchMove={(clientX, width) => updateScratch('A', clientX, width)}
-              onScratchEnd={(isQuickClick, clickPercent) => stopScratch('A', isQuickClick, clickPercent)}
               onMarkerMove={updateDeckCuePoints}
               accentColor="cyan"
               djMode={djMode}
@@ -298,9 +295,6 @@ export default function App() {
               onJumpToOutro={() => jumpToOutro('B')}
               onPitchChange={(val) => handlePitchChange('B', val)}
               onToggleVinyl={() => toggleVinylMode('B')}
-              onScratchStart={(isUpperHalf, clientX, clientY, rect) => startScratch('B', isUpperHalf, clientX, clientY, rect)}
-              onScratchMove={(clientX, width) => updateScratch('B', clientX, width)}
-              onScratchEnd={(isQuickClick, clickPercent) => stopScratch('B', isQuickClick, clickPercent)}
               onMarkerMove={updateDeckCuePoints}
               accentColor="pink"
               djMode={djMode}

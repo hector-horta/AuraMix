@@ -605,7 +605,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
   };
 
-  const updateFx = (active, type, x, y, isInitialTouch = false) => {
+  const updateFx = (active, type, x, y, isInitialTouch = false, isQuickClick = false) => {
     setFxState({ active, type, x, y });
     
     initAudio();
@@ -616,6 +616,21 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     const nodes = getNodes(deckId);
     
     applyFx(nodes, ctx, { active, type, x, y, masterBpm, isInitialTouch });
+
+    if (type === 'Scratch') {
+      const isUpperHalf = y > 0.5;
+      const currentDeck = deckId === 'A' ? deckA : deckB;
+      if (active) {
+        if (isInitialTouch) {
+          currentDeck.startScratch(isUpperHalf, x, y, () => transitionState.active);
+        } else {
+          const width = 1;
+          currentDeck.updateScratch(x, width, () => transitionState.active);
+        }
+      } else {
+        currentDeck.stopScratch(isQuickClick, x, () => transitionState.active);
+      }
+    }
   };
 
   return {
