@@ -17,6 +17,7 @@ import { useAudioEngine } from './hooks/useAudioEngine'
 import Deck from './components/Deck'
 import MixMaster from './components/MixMaster'
 import MixerPanel from './components/MixerPanel'
+import AutoloadToast from './components/AutoloadToast'
 
 
 export default function App() {
@@ -75,7 +76,10 @@ export default function App() {
     updateScratch,
     stopScratch,
     toggleDeckLoop,
-    updateDeckCuePoints
+    updateDeckCuePoints,
+    autoloadCountdown,
+    autoloadNotification,
+    dismissAutoloadNotification
   } = useAudioEngine({ library, addLog, onUpdateTrackCuePoints: updateTrackCuePoints });
 
   // --- AUDIO FILE UPLOAD & ANALYSIS ---
@@ -284,6 +288,7 @@ export default function App() {
               onMarkerMove={updateDeckCuePoints}
               accentColor="cyan"
               djMode={djMode}
+              autoloadSecondsLeft={autoloadCountdown.A}
             />
             <Deck
               deckId="B"
@@ -298,6 +303,7 @@ export default function App() {
               onMarkerMove={updateDeckCuePoints}
               accentColor="pink"
               djMode={djMode}
+              autoloadSecondsLeft={autoloadCountdown.B}
             />
           </div>
 
@@ -319,6 +325,12 @@ export default function App() {
         </main>
 
       </div>
+
+      {/* Autoload Toast Notification */}
+      <AutoloadToast
+        notification={autoloadNotification}
+        onDismiss={dismissAutoloadNotification}
+      />
     </div>
   );
 }

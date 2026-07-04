@@ -1,6 +1,7 @@
 import React from 'react'
 import { Play, Pause, SkipForward, Disc } from 'lucide-react'
 import Waveform from './Waveform'
+import AutoloadCountdown from './AutoloadCountdown'
 import { formatTime } from '../utils/formatTime'
 import './Deck.css'
 
@@ -16,7 +17,8 @@ export default function Deck({
   onToggleVinyl,
   onMarkerMove,
   accentColor,
-  djMode
+  djMode,
+  autoloadSecondsLeft
 }) {
   const isCyan = accentColor === 'cyan';
   const playedColor = isCyan ? '#00f0ff' : '#ff007f';
@@ -58,6 +60,9 @@ export default function Deck({
       <div className="deck-header">
         <span className="deck-label">Deck {deckId}</span>
         <div className="deck-header-right">
+          {autoloadSecondsLeft != null && autoloadSecondsLeft > 0 && (
+            <AutoloadCountdown secondsLeft={autoloadSecondsLeft} />
+          )}
           <div className="vinyl-toggle-container">
             <span className="vinyl-toggle-label">VINYL</span>
             <button 
@@ -78,7 +83,12 @@ export default function Deck({
         <>
           <div key={deck.track.id} className="deck-loaded-content">
             <div className="track-info">
-              <h3 className="track-title">{deck.track.title}</h3>
+              <div className="track-title-row">
+                <h3 className="track-title">{deck.track.title}</h3>
+                {deck.track && !deck.isUserSelected && (
+                  <span className="auto-badge">AUTO</span>
+                )}
+              </div>
               <p className="track-artist">{deck.track.artist}</p>
             </div>
 

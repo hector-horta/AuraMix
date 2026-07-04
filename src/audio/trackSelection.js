@@ -52,17 +52,26 @@ export function findCompatibleTrack(currentTrack, library, playedTrackIds, djMod
 }
 
 /**
- * Creates an autoload scheduler that manages 10-second prep timers per deck.
+ * Creates an autoload scheduler that manages 10-second countdown timers per deck.
+ * Emits tick events each second for UI countdown display.
  * @param {Function} findFn - Function to find a compatible track: (activeTrack) => track|null
  * @param {Function} loadFn - Function to load a track into a deck: (track, deckId, startAuto, isAutoload) => void
  * @param {Function} addLog - Logging function.
+ * @param {Object} callbacks - UI notification callbacks.
+ * @param {Function} callbacks.onTick - Called every second: (deckId, secondsLeft) => void
+ * @param {Function} callbacks.onAutoloaded - Called when a track is autoloaded: (deckId, track) => void
+ * @param {Function} callbacks.onCancelled - Called when a countdown is cancelled: (deckId) => void
  * @returns {{ queue: Function, cancel: Function, cancelAll: Function, getTimers: Function }}
  */
-export function createAutoloadScheduler(findFn, loadFn, addLog) {
+export function createAutoloadScheduler(findFn, loadFn, addLog, callbacks = {}) {
   const timers = { A: null, B: null };
+  const intervals = { A: null, B: null };
+  const counters = { A: 0, B: 0 };
+
+  const { onTick, onAutoloaded, onCancelled } = callbacks;
 
   /**
-   * Queue a 10-second autoload timer for a stopped deck.
+   * Queue a 10-second autoload countdown for a stopped deck.
    * @param {string} stoppedDeckId - 'A' or 'B'
    * @param {Object} currentActiveTrack - The track currently playing on the other deck.
    * @param {string} djMode - Current DJ mode.
@@ -70,24 +79,50 @@ export function createAutoloadScheduler(findFn, loadFn, addLog) {
   function queue(stoppedDeckId, currentActiveTrack, djMode) {
     if (djMode === 'manual') return;
 
-    // Clear any existing timer for this deck
-    if (timers[stoppedDeckId]) {
-      clearTimeout(timers[stoppedDeckId]);
-    }
+    // Clear any existing timer/interval for this deck
+    clearDeck(stoppedDeckId);
 
     const modeLabel = djMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
-    addLog(`${modeLabel}: Esperando 10 segundos para pre-cargar canción compatible en Deck ${stoppedDeckId}...`);
+    addLog(`${modeLabel}: Cuenta regresiva de 10s para pre-cargar en Deck ${stoppedDeckId}...`);
 
-    timers[stoppedDeckId] = setTimeout(() => {
-      const compatibleTrack = findFn(currentActiveTrack);
-      if (compatibleTrack) {
-        addLog(`${modeLabel} (10s): Cargando automáticamente tema preparado "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
-        loadFn(compatibleTrack, stoppedDeckId, false, true);
-      } else {
-        addLog(`${modeLabel} (10s) Info: No se encontró tema compatible en la biblioteca para pre-cargar en Deck ${stoppedDeckId}.`);
+    counters[stoppedDeckId] = 10;
+
+    // Emit initial tick
+    if (onTick) onTick(stoppedDeckId, 10);
+
+    // Tick every second
+    intervals[stoppedDeckId] = setInterval(() => {
+      counters[stoppedDeckId] -= 1;
+      const left = counters[stoppedDeckId];
+
+      if (onTick) onTick(stoppedDeckId, left);
+
+      if (left <= 0) {
+        clearDeck(stoppedDeckId);
+
+        const compatibleTrack = findFn(currentActiveTrack);
+        if (compatibleTrack) {
+          addLog(`${modeLabel}: Cargando automáticamente "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
+          loadFn(compatibleTrack, stoppedDeckId, false, true);
+          if (onAutoloaded) onAutoloaded(stoppedDeckId, compatibleTrack);
+        } else {
+          addLog(`${modeLabel}: No se encontró tema compatible para pre-cargar en Deck ${stoppedDeckId}.`);
+          if (onTick) onTick(stoppedDeckId, null); // signal end without load
+        }
       }
-      timers[stoppedDeckId] = null;
-    }, 10000);
+    }, 1000);
+  }
+
+  function clearDeck(deckId) {
+    if (intervals[deckId]) {
+      clearInterval(intervals[deckId]);
+      intervals[deckId] = null;
+    }
+    if (timers[deckId]) {
+      clearTimeout(timers[deckId]);
+      timers[deckId] = null;
+    }
+    counters[deckId] = 0;
   }
 
   /**
@@ -95,9 +130,10 @@ export function createAutoloadScheduler(findFn, loadFn, addLog) {
    * @param {string} deckId - 'A' or 'B'
    */
   function cancel(deckId) {
-    if (timers[deckId]) {
-      clearTimeout(timers[deckId]);
-      timers[deckId] = null;
+    const wasActive = intervals[deckId] !== null;
+    clearDeck(deckId);
+    if (wasActive && onCancelled) {
+      onCancelled(deckId);
     }
   }
 
@@ -114,7 +150,7 @@ export function createAutoloadScheduler(findFn, loadFn, addLog) {
    * @returns {{ A: number|null, B: number|null }}
    */
   function getTimers() {
-    return { ...timers };
+    return { A: intervals.A ? counters.A : null, B: intervals.B ? counters.B : null };
   }
 
   return { queue, cancel, cancelAll, getTimers };

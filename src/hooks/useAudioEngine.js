@@ -36,6 +36,10 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     y: 0.5
   });
 
+  // Autoload countdown & notification state
+  const [autoloadCountdown, setAutoloadCountdown] = useState({ A: null, B: null });
+  const [autoloadNotification, setAutoloadNotification] = useState(null);
+
   // Refs for transitions and scheduling stability
   const transitionActiveRef = useRef(false);
   const transitionCheckedRef = useRef({ A: false, B: false });
@@ -138,7 +142,19 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       autoloadSchedulerRef.current = createAutoloadScheduler(
         findCompatibleTrack,
         loadTrackIntoDeck,
-        addLog
+        addLog,
+        {
+          onTick: (deckId, secondsLeft) => {
+            setAutoloadCountdown(prev => ({ ...prev, [deckId]: secondsLeft }));
+          },
+          onAutoloaded: (deckId, track) => {
+            setAutoloadCountdown(prev => ({ ...prev, [deckId]: null }));
+            setAutoloadNotification({ deckId, track, timestamp: Date.now() });
+          },
+          onCancelled: (deckId) => {
+            setAutoloadCountdown(prev => ({ ...prev, [deckId]: null }));
+          }
+        }
       );
     }
     return autoloadSchedulerRef.current;
@@ -497,7 +513,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
     if (!isAutoload && autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current.cancel(deckId);
-      addLog(`${modeLabel}: Cancelado pre-cargado automático en Deck ${deckId} debido a carga manual.`);
+      addLog(`${modeLabel}: Cancelada cuenta regresiva en Deck ${deckId} por carga manual.`);
     }
 
     setPlayedTrackIds(prev => prev.includes(track.id) ? prev : [...prev, track.id]);
@@ -633,6 +649,10 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     }
   };
 
+  const dismissAutoloadNotification = () => {
+    setAutoloadNotification(null);
+  };
+
   return {
     deckA: deckA.state,
     deckB: deckB.state,
@@ -671,6 +691,9 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     audioCtxRef,
     fxState,
     updateFx,
+    autoloadCountdown,
+    autoloadNotification,
+    dismissAutoloadNotification,
     toggleVinylMode: (deckId) => (deckId === 'A' ? deckA.toggleVinylMode() : deckB.toggleVinylMode()),
     startScratch: (deckId, isUpperHalf, clientX, clientY) => (deckId === 'A' ? deckA.startScratch(isUpperHalf, clientX, clientY, () => transitionState.active) : deckB.startScratch(isUpperHalf, clientX, clientY, () => transitionState.active)),
     updateScratch: (deckId, clientX, width) => (deckId === 'A' ? deckA.updateScratch(clientX, width, () => transitionState.active) : deckB.updateScratch(clientX, width, () => transitionState.active)),

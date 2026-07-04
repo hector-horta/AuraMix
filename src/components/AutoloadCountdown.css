@@ -1,0 +1,113 @@
+.autoload-countdown {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 8px;
+  padding: 0.2rem 0.5rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  box-shadow: 
+    0 0 8px rgba(0, 240, 255, 0.15),
+    inset 0 0 6px rgba(0, 240, 255, 0.05);
+  animation: countdownAppear 0.4s ease-out;
+  user-select: none;
+}
+
+.countdown-label {
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(0, 240, 255, 0.7);
+  text-transform: uppercase;
+}
+
+.countdown-number-container {
+  position: relative;
+  width: 1.4rem;
+  height: 1.4rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--neon-cyan, #00f0ff);
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+  line-height: 1;
+}
+
+.countdown-idle {
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* Number entering from below */
+.countdown-enter {
+  animation: slideInFromBelow 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Number exiting upward */
+.countdown-exit {
+  animation: slideOutUpward 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes slideInFromBelow {
+  0% {
+    transform: translateY(120%);
+    filter: blur(3px);
+    opacity: 0.4;
+  }
+  60% {
+    filter: blur(1px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(0%);
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutUpward {
+  0% {
+    transform: translateY(0%);
+    filter: blur(0);
+    opacity: 1;
+  }
+  40% {
+    filter: blur(1px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-120%);
+    filter: blur(3px);
+    opacity: 0;
+  }
+}
+
+@keyframes countdownAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.countdown-unit {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(0, 240, 255, 0.5);
+  margin-left: -0.1rem;
+}

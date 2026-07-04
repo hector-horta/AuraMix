@@ -40,6 +40,37 @@
   margin-bottom: 0.5rem;
 }
 
+.track-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auto-badge {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--neon-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  animation: autoBadgePulse 2s ease-in-out infinite;
+}
+
+.deck-b .auto-badge {
+  background: rgba(255, 0, 127, 0.12);
+  color: var(--neon-pink);
+  border-color: rgba(255, 0, 127, 0.25);
+}
+
+@keyframes autoBadgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .track-title {
   font-size: 1.25rem;
   font-weight: 700;
