@@ -132,6 +132,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
 
   // --- Autoload Scheduler ---
   const autoloadSchedulerRef = useRef(null);
+  const loadTrackIntoDeckRef = useRef(null);
 
   const findCompatibleTrack = (currentTrack) => {
     return findCompatible(currentTrack, libraryRef.current, playedTrackIdsRef.current, djModeRef.current);
@@ -141,7 +142,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     if (!autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current = createAutoloadScheduler(
         findCompatibleTrack,
-        loadTrackIntoDeck,
+        (...args) => loadTrackIntoDeckRef.current(...args),
         addLog,
         {
           onTick: (deckId, secondsLeft) => {
@@ -368,7 +369,8 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
           isPlaying: false,
           currentTime: 0,
           eq: { low: 0, mid: 0, high: 0 },
-          volume: 1.0
+          volume: 1.0,
+          isUserSelected: false
         }));
         resetDeckEq(nodesFrom);
 
@@ -503,7 +505,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     initAudio();
 
     const currentDjMode = djModeRef.current;
-    const currentDeck = deckId === 'A' ? deckA.state : deckB.state;
+    const currentDeck = deckId === 'A' ? deckARef.current : deckBRef.current;
     const modeLabel = currentDjMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
     
     if (isAutoload && currentDeck.track && currentDeck.isUserSelected) {
@@ -536,6 +538,9 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       }
     }
   };
+
+  // Keep the ref always pointing to the latest version of loadTrackIntoDeck
+  loadTrackIntoDeckRef.current = loadTrackIntoDeck;
 
   // sessionElapsedTime timer: running 1s intervals when any deck is playing
   const isPlayingA = deckA.state.isPlaying;
