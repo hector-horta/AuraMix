@@ -138,9 +138,28 @@ class MockAudioContext {
   }
 }
 
+class MockOfflineAudioContext extends MockAudioContext {
+  constructor(numberOfChannels, length, sampleRate) {
+    super();
+    this.length = length;
+    this.sampleRate = sampleRate;
+  }
+
+  startRendering() {
+    const mockRenderedBuffer = {
+      duration: this.length / this.sampleRate,
+      sampleRate: this.sampleRate,
+      numberOfChannels: 1,
+      getChannelData: () => new Float32Array(this.length)
+    };
+    return Promise.resolve(mockRenderedBuffer);
+  }
+}
+
 // Register globally
 globalThis.AudioContext = MockAudioContext;
 globalThis.webkitAudioContext = MockAudioContext;
+globalThis.OfflineAudioContext = MockOfflineAudioContext;
 
 // Export factory functions for tests that need individual node mocks
 globalThis.__testMocks = {
@@ -151,4 +170,5 @@ globalThis.__testMocks = {
   createMockOscillatorNode,
   createMockBufferSourceNode,
   MockAudioContext,
+  MockOfflineAudioContext,
 };
