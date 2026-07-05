@@ -13,8 +13,8 @@ import { areKeysCompatible } from '../utils/audioAnalyzer';
  * @param {string} djMode - Current DJ mode ('manual', 'autodj', 'jukebox').
  * @returns {Object|null} A compatible track, or null if none found.
  */
-export function findCompatibleTrack(currentTrack, library, playedTrackIds, djMode) {
-  if (!currentTrack) return null;
+export function findCompatibleTrack(currentTrack, library, playedTrackIds = [], djMode = 'autodj') {
+  if (!currentTrack || !library || library.length === 0) return null;
 
   // Get all compatible tracks (matching key & BPM within 5%)
   const compatibleTracks = library.filter(track => {
@@ -55,7 +55,7 @@ export function findCompatibleTrack(currentTrack, library, playedTrackIds, djMod
  * Creates an autoload scheduler that manages 10-second countdown timers per deck.
  * Emits tick events each second for UI countdown display.
  * @param {Function} findFn - Function to find a compatible track: (activeTrack) => track|null
- * @param {Function} loadFn - Function to load a track into a deck: (track, deckId, startAuto, isAutoload) => void
+ * @param {Function} loadFn - Function to load a track into a deck: (track, deckId, startAuto, isAutoload) => boolean
  * @param {Function} addLog - Logging function.
  * @param {Object} callbacks - UI notification callbacks.
  * @param {Function} callbacks.onTick - Called every second: (deckId, secondsLeft) => void
@@ -103,8 +103,10 @@ export function createAutoloadScheduler(findFn, loadFn, addLog, callbacks = {}) 
         const compatibleTrack = findFn(currentActiveTrack);
         if (compatibleTrack) {
           addLog(`${modeLabel}: Cargando automáticamente "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
-          loadFn(compatibleTrack, stoppedDeckId, false, true);
-          if (onAutoloaded) onAutoloaded(stoppedDeckId, compatibleTrack);
+          const success = loadFn(compatibleTrack, stoppedDeckId, false, true);
+          if (success !== false && onAutoloaded) {
+            onAutoloaded(stoppedDeckId, compatibleTrack);
+          }
         } else {
           addLog(`${modeLabel}: No se encontró tema compatible para pre-cargar en Deck ${stoppedDeckId}.`);
           if (onTick) onTick(stoppedDeckId, null); // signal end without load

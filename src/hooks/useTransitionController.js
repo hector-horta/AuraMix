@@ -138,7 +138,7 @@ export function useTransitionController({
     
     addLog(`Duración de mezcla: ${transitionDuration.toFixed(1)}s (outro saliente: ${timing.outroDuration.toFixed(1)}s, intro entrante: ${timing.introDuration.toFixed(1)}s) — 3 fases de ${phaseDuration.toFixed(1)}s.`);
 
-    toDeckInst.setState(prev => ({ ...prev, volume: 1.0 }));
+    toDeckInst.setState(prev => ({ ...prev, volume: 1.0, isUserSelected: false }));
 
     // --- SCHEDULE AUDIO RAMPS ---
     const fromBpm = activeTrack ? activeTrack.bpm : 120;
@@ -172,7 +172,8 @@ export function useTransitionController({
           currentTime: 0,
           eq: { low: 0, mid: 0, high: 0 },
           volume: 1.0,
-          isUserSelected: false
+          isUserSelected: false,
+          lastPlayedTrackId: prev.track ? prev.track.id : prev.lastPlayedTrackId
         }));
         resetDeckEq(nodesFrom);
 

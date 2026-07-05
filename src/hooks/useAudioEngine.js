@@ -222,7 +222,9 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       currentTime: 0,
       activeLoopBars: null,
       loopStart: 0,
-      loopEnd: 0
+      loopEnd: 0,
+      isUserSelected: false,
+      lastPlayedTrackId: prev.track ? prev.track.id : prev.lastPlayedTrackId
     }));
     nodes.pausedAt = 0;
   };
@@ -234,9 +236,11 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     const currentDeck = deckId === 'A' ? deckA.state : deckB.state;
     const modeLabel = currentDjMode === 'jukebox' ? 'Jukebox' : 'Auto-DJ';
     
-    if (isAutoload && currentDeck.track && currentDeck.isUserSelected) {
+    const isNewUserSelectedTrack = currentDeck.track && (currentDeck.track.id !== currentDeck.lastPlayedTrackId);
+    
+    if (isAutoload && isNewUserSelectedTrack) {
       addLog(`${modeLabel}: Conservando la canción "${currentDeck.track.title}" elegida por el usuario en Deck ${deckId}.`);
-      return;
+      return false;
     }
 
     if (!isAutoload) {
@@ -261,6 +265,8 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
         triggerAutomatedTransition('A', 'B', track, loadTrackIntoDeckRef.current);
       }
     }
+
+    return true;
   }, [deckA, deckB, masterBpm, addLog, cancelAutoload, triggerAutomatedTransition, initAudio]);
 
   loadTrackIntoDeckRef.current = loadTrackIntoDeck;

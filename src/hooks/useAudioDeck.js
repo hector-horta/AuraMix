@@ -26,7 +26,7 @@ export function useAudioDeck({
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    pitch: 0, // pitch fader offset (-10% to +10%)
+    pitch: 0, // pitch bend offset (-10% to +10%)
     volume: 1.0,
     eq: { low: 0, mid: 0, high: 0 }, // values in dB (-40 to 12)
     outroTime: 0,
@@ -34,6 +34,7 @@ export function useAudioDeck({
     cueTime: 0,
     vinylMode: true,
     isUserSelected: false,
+    lastPlayedTrackId: null,
     activeLoopBars: null,
     loopStart: 0,
     loopEnd: 0
@@ -159,7 +160,7 @@ export function useAudioDeck({
       addLog(`Deck ${deckId}: Pausado.`);
     } else {
       playDeckSource();
-      setDeck(prev => ({ ...prev, isPlaying: true }));
+      setDeck(prev => ({ ...prev, isPlaying: true, isUserSelected: false, lastPlayedTrackId: prev.track ? prev.track.id : prev.lastPlayedTrackId }));
       onSetActiveDeck(deckId);
       addLog(`Deck ${deckId}: Reproduciendo.`);
     }
@@ -366,7 +367,7 @@ export function useAudioDeck({
 
     nodesRef.current.pitch = initialPitch;
 
-    setDeck({
+    setDeck(prev => ({
       track: track,
       isPlaying: false,
       currentTime: initialPausedAt,
@@ -377,12 +378,13 @@ export function useAudioDeck({
       outroTime: track.outro,
       introTime: track.intro,
       cueTime: track.cue || 0,
-      vinylMode: deck.vinylMode,
+      vinylMode: prev.vinylMode,
       isUserSelected: !isAutoload,
+      lastPlayedTrackId: isAutoload ? track.id : prev.lastPlayedTrackId,
       activeLoopBars: null,
       loopStart: 0,
       loopEnd: 0
-    });
+    }));
 
     addLog(`Cargado "${track.title}" en Deck ${deckId}.`);
   };

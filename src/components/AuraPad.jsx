@@ -24,7 +24,9 @@ export default function AuraPad({ fxState, onUpdateFx }) {
   const handlePointerDown = (e) => {
     setIsPressing(true);
     touchStartRef.current = { time: performance.now(), x: e.clientX };
-    e.target.setPointerCapture(e.pointerId);
+    if (e.target.setPointerCapture) {
+      e.target.setPointerCapture(e.pointerId);
+    }
     updateCoords(e, true);
   };
 
@@ -35,13 +37,19 @@ export default function AuraPad({ fxState, onUpdateFx }) {
 
   const handlePointerUp = (e) => {
     setIsPressing(false);
-    e.target.releasePointerCapture(e.pointerId);
+    if (e.target.hasPointerCapture && e.target.hasPointerCapture(e.pointerId)) {
+      e.target.releasePointerCapture(e.pointerId);
+    }
     
     const elapsed = performance.now() - touchStartRef.current.time;
     const distance = Math.abs(e.clientX - touchStartRef.current.x);
     const isQuickClick = distance < 6 && elapsed < 220;
 
-    onUpdateFx(false, selectedFx, coords.x, coords.y, false, isQuickClick);
+    const centerX = 0.5;
+    const centerY = 0.5;
+
+    setCoords({ x: centerX, y: centerY });
+    onUpdateFx(false, selectedFx, centerX, centerY, false, isQuickClick);
   };
 
   const updateCoords = (e, isInitialTouch) => {
@@ -61,10 +69,11 @@ export default function AuraPad({ fxState, onUpdateFx }) {
 
   const handleFxSelect = (name) => {
     setSelectedFx(name);
+    setCoords({ x: 0.5, y: 0.5 });
     if (isPressing) {
-      onUpdateFx(true, name, coords.x, coords.y, true);
+      onUpdateFx(true, name, 0.5, 0.5, true);
     } else {
-      onUpdateFx(false, name, coords.x, coords.y);
+      onUpdateFx(false, name, 0.5, 0.5);
     }
   };
 

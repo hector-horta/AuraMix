@@ -136,7 +136,7 @@ export default function Deck({
 
             <div className="pitch-slider-container">
               <div className="pitch-label-row">
-                <span>Pitch Fader</span>
+                <span>Pitch Bend</span>
                 <span className="pitch-val">{deck.pitch > 0 ? '+' : ''}{deck.pitch.toFixed(1)}%</span>
               </div>
               <input 
