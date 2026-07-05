@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { formatTime } from '../utils/formatTime'
-import { createDeckGraph } from '../audio/audioGraph'
+import { useState, useRef } from 'react';
+import { formatTime } from '../utils/formatTime';
+import { createDeckGraph } from '../audio/audioGraph';
+import { useDeckPlayback } from './useDeckPlayback';
+import { useDeckLoop } from './useDeckLoop';
 import {
   handleScratchStart as scratchStart,
   handleScratchUpdate as scratchUpdate,
   handleScratchStop as scratchStop
-} from '../audio/scratchEngine'
+} from '../audio/scratchEngine';
 
 export function useAudioDeck({
   deckId,
@@ -55,58 +57,29 @@ export function useAudioDeck({
     activeLoopBars: null
   });
 
-  // Scratch refs
+  // Scratch refs - static structure matching scratchEngine expectations
   const isScratchingRef = useRef(false);
   const dragModeRef = useRef(null);
   const lastXRef = useRef(0);
   const lastTimeRef = useRef(0);
   const bendTimeoutRef = useRef(null);
 
-  // Proxy to match scratchEngine's multi-deck ref structure
-  const scratchRefs = useMemo(() => ({
-    isScratchingRef: {
-      get current() {
-        return {
-          get [deckId]() { return isScratchingRef.current; },
-          set [deckId](val) { isScratchingRef.current = val; }
-        };
-      }
-    },
-    dragModeRef: {
-      get current() {
-        return {
-          get [deckId]() { return dragModeRef.current; },
-          set [deckId](val) { dragModeRef.current = val; }
-        };
-      }
-    },
-    lastXRef: {
-      get current() {
-        return {
-          get [deckId]() { return lastXRef.current; },
-          set [deckId](val) { lastXRef.current = val; }
-        };
-      }
-    },
-    lastTimeRef: {
-      get current() {
-        return {
-          get [deckId]() { return lastTimeRef.current; },
-          set [deckId](val) { lastTimeRef.current = val; }
-        };
-      }
-    },
-    bendTimeoutRef: {
-      get current() {
-        return {
-          get [deckId]() { return bendTimeoutRef.current; },
-          set [deckId](val) { bendTimeoutRef.current = val; }
-        };
-      }
-    }
-  }), [deckId]);
+  const scratchRefs = useRef({
+    isScratchingRef: { current: { A: false, B: false } },
+    dragModeRef: { current: { A: null, B: null } },
+    lastXRef: { current: { A: 0, B: 0 } },
+    lastTimeRef: { current: { A: 0, B: 0 } },
+    bendTimeoutRef: { current: { A: null, B: null } }
+  }).current;
 
-  // Initialize nodes lazily
+  // Sync internal refs with scratchRefs for scratchEngine compatibility
+  scratchRefs.isScratchingRef.current[deckId] = isScratchingRef.current;
+  scratchRefs.dragModeRef.current[deckId] = dragModeRef.current;
+  scratchRefs.lastXRef.current[deckId] = lastXRef.current;
+  scratchRefs.lastTimeRef.current[deckId] = lastTimeRef.current;
+  scratchRefs.bendTimeoutRef.current[deckId] = bendTimeoutRef.current;
+
+  // Initialize Web Audio nodes lazily
   const init = (ctx) => {
     if (nodesRef.current.gainNode) return;
     const graph = createDeckGraph(ctx);
@@ -119,7 +92,7 @@ export function useAudioDeck({
     if (!ctx || !nodes.buffer) return;
 
     if (nodes.source) {
-      try { nodes.source.stop(); } catch(e) {}
+      try { nodes.source.stop(); } catch (e) {}
     }
 
     const source = ctx.createBufferSource();
@@ -154,7 +127,7 @@ export function useAudioDeck({
     if (nodes.source) {
       try {
         nodes.source.stop();
-      } catch(e) {}
+      } catch (e) {}
       nodes.source = null;
     }
   };
@@ -248,82 +221,15 @@ export function useAudioDeck({
   };
 
   const handleEqChange = (band, value) => {
-    const val = parseInt(value);
+    const val = parseInt(value, 10);
     const nodes = nodesRef.current;
+    const nodeKey = band === 'low' ? 'lowShelf' : band === 'mid' ? 'midPeaking' : 'highShelf';
     
-    if (nodes[band === 'low' ? 'lowShelf' : band === 'mid' ? 'midPeaking' : 'highShelf']) {
-      nodes[band === 'low' ? 'lowShelf' : band === 'mid' ? 'midPeaking' : 'highShelf'].gain.value = val;
+    if (nodes[nodeKey]) {
+      nodes[nodeKey].gain.value = val;
     }
 
     setDeck(prev => ({ ...prev, eq: { ...prev.eq, [band]: val } }));
-  };
-
-  const toggleDeckLoop = (bars) => {
-    initAudio();
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
-    const nodes = nodesRef.current;
-    if (!deck.track || !nodes.buffer) return;
-
-    const bpm = deck.track.bpm || 120;
-    const firstBeatOffset = deck.track.firstBeatOffset || 0;
-    const beatDuration = 60 / bpm;
-    const barDuration = 4 * beatDuration;
-    const loopDuration = bars * barDuration;
-
-    if (nodes.loopActive && nodes.activeLoopBars === bars) {
-      nodes.loopActive = false;
-      nodes.activeLoopBars = null;
-      nodes.loopStart = 0;
-      nodes.loopEnd = 0;
-
-      if (nodes.source) {
-        nodes.source.loop = false;
-      }
-      setDeck(prev => ({ ...prev, activeLoopBars: null, loopStart: 0, loopEnd: 0 }));
-      addLog(`Deck ${deckId}: Loop desactivado.`);
-    } else if (nodes.loopActive) {
-      const newLoopEnd = Math.min(deck.duration, nodes.loopStart + loopDuration);
-      nodes.activeLoopBars = bars;
-      nodes.loopEnd = newLoopEnd;
-
-      if (nodes.source) {
-        nodes.source.loopEnd = newLoopEnd;
-      }
-
-      if (nodes.source && deck.isPlaying) {
-        const playbackRate = 1 + (nodes.pitch / 100);
-        const elapsed = Math.max(0, ctx.currentTime - nodes.startTime);
-        const current = nodes.pausedAt + elapsed * playbackRate;
-        if (current > newLoopEnd) {
-          const newLoopDuration = newLoopEnd - nodes.loopStart;
-          const timeInLoop = (current - nodes.loopStart) % newLoopDuration;
-          nodes.pausedAt = nodes.loopStart + timeInLoop;
-          playDeckSource();
-        }
-      }
-
-      setDeck(prev => ({ ...prev, activeLoopBars: bars, loopEnd: newLoopEnd }));
-      addLog(`Deck ${deckId}: Loop redimensionado a ${bars} barras (${formatTime(nodes.loopStart)} - ${formatTime(newLoopEnd)}).`);
-    } else {
-      const elapsed = Math.max(0, deck.currentTime - firstBeatOffset);
-      const nearestBeat = Math.round(elapsed / beatDuration);
-      const loopStart = Math.max(0, firstBeatOffset + nearestBeat * beatDuration);
-      const loopEnd = Math.min(deck.duration, loopStart + loopDuration);
-
-      nodes.loopActive = true;
-      nodes.activeLoopBars = bars;
-      nodes.loopStart = loopStart;
-      nodes.loopEnd = loopEnd;
-
-      if (nodes.source) {
-        nodes.source.loop = true;
-        nodes.source.loopStart = loopStart;
-        nodes.source.loopEnd = loopEnd;
-      }
-      setDeck(prev => ({ ...prev, activeLoopBars: bars, loopStart: loopStart, loopEnd: loopEnd }));
-      addLog(`Deck ${deckId}: Loop activado de ${bars} barras (${formatTime(loopStart)} - ${formatTime(loopEnd)}).`);
-    }
   };
 
   const updateDeckCuePoints = (markerType, newTime) => {
@@ -481,46 +387,30 @@ export function useAudioDeck({
     addLog(`Cargado "${track.title}" en Deck ${deckId}.`);
   };
 
-  // Local requestAnimationFrame progress loop
-  useEffect(() => {
-    let frameId;
-    const updateProgress = () => {
-      const ctx = audioCtxRef.current;
-      if (!ctx || !deck.isPlaying) return;
+  // Sub-hook 1: High-resolution playback animation loop
+  useDeckPlayback({
+    deckId,
+    audioCtxRef,
+    isPlaying: deck.isPlaying,
+    duration: deck.duration,
+    nodesRef,
+    isScratchingRef,
+    setDeck,
+    onPlaybackEnded,
+    onTimeUpdate
+  });
 
-      if (isScratchingRef.current) {
-        frameId = requestAnimationFrame(updateProgress);
-        return;
-      }
-
-      const elapsed = Math.max(0, ctx.currentTime - nodesRef.current.startTime);
-      const playbackRate = 1 + (nodesRef.current.pitch / 100);
-      let current = nodesRef.current.pausedAt + elapsed * playbackRate;
-
-      if (nodesRef.current.loopActive) {
-        const loopDuration = nodesRef.current.loopEnd - nodesRef.current.loopStart;
-        if (current >= nodesRef.current.loopEnd && loopDuration > 0) {
-          const timeInLoop = (current - nodesRef.current.loopStart) % loopDuration;
-          current = nodesRef.current.loopStart + timeInLoop;
-        }
-      }
-
-      if (current >= deck.duration) {
-        onPlaybackEnded(deckId);
-      } else {
-        setDeck(prev => ({ ...prev, currentTime: current }));
-        if (onTimeUpdate) {
-          onTimeUpdate(deckId, current);
-        }
-      }
-      frameId = requestAnimationFrame(updateProgress);
-    };
-
-    if (deck.isPlaying) {
-      frameId = requestAnimationFrame(updateProgress);
-    }
-    return () => cancelAnimationFrame(frameId);
-  }, [deck.isPlaying, deck.duration, deckId, onPlaybackEnded, onTimeUpdate]);
+  // Sub-hook 2: Rhythmic looping logic
+  const { toggleDeckLoop } = useDeckLoop({
+    deckId,
+    audioCtxRef,
+    nodesRef,
+    deck,
+    setDeck,
+    initAudio,
+    playDeckSource,
+    addLog
+  });
 
   return {
     state: deck,

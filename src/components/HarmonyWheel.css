@@ -1,0 +1,225 @@
+/* Harmony Wheel Component Styles */
+.mix-master-harmony-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  justify-self: center;
+  width: 256px;
+}
+
+.harmony-header-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-label-harmony {
+  color: var(--neon-green);
+}
+
+.harmony-grid-layout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(60px, 80px));
+  grid-template-rows: repeat(2, auto);
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.slot-area-prev {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.slot-area-actual {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  height: 100%;
+}
+
+.slot-area-next {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+.slot-area-rel {
+  grid-row: 2;
+  grid-column: 1;
+}
+
+.wheel-slot-horizontal {
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.3rem 0.2rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.double-height {
+  min-height: 80px;
+  padding: 0.6rem 0.2rem;
+  justify-content: center;
+}
+
+.key-large {
+  font-size: 1.1rem !important;
+}
+
+.label-large {
+  font-size: 0.55rem !important;
+}
+
+.slot-center {
+  background: rgba(0, 240, 255, 0.05);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+}
+
+.slot-compat {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.2);
+}
+
+.slot-relative-key {
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
+  box-shadow: 0 0 8px rgba(157, 78, 221, 0.2);
+  background: rgba(157, 78, 221, 0.02);
+}
+
+.slot-key {
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.slot-label {
+  font-size: 0.5rem;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  margin-top: 0.1rem;
+}
+
+.harmony-placeholder-container {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.harmony-placeholder {
+  font-size: 0.75rem;
+  color: var(--text-dark);
+  font-style: italic;
+}
+
+/* Tooltip Styles for Harmonic Guide */
+.info-tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.harmony-info-icon {
+  color: var(--neon-green);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.info-tooltip-container:hover .harmony-info-icon {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.harmony-tooltip-content {
+  position: absolute;
+  bottom: 135%;
+  left: 50%;
+  transform: translateX(-50%) translateY(5px);
+  width: 250px;
+  background: rgba(10, 10, 20, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--neon-green);
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.15), var(--shadow-lg);
+  border-radius: 8px;
+  padding: 0.75rem;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.info-tooltip-container:hover .harmony-tooltip-content {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--neon-green);
+  display: block;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.harmony-tooltip-content p {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  line-height: 1.35;
+}
+
+.tooltip-guide-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  color: var(--text-main);
+  margin-bottom: 0.35rem;
+}
+
+.tooltip-guide-item:last-child {
+  margin-bottom: 0;
+}
+
+.tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltip-dot.dot-same {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 4px var(--neon-cyan);
+}
+
+.tooltip-dot.dot-adjacent {
+  background: var(--neon-green);
+  box-shadow: 0 0 4px var(--neon-green);
+}
+
+.tooltip-dot.dot-relative {
+  background: var(--neon-purple);
+  box-shadow: 0 0 4px var(--neon-purple);
+}

@@ -1,45 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { 
-  Play, Pause, SkipForward, Upload, Music, Sliders, 
-  Volume2, Disc, Check, AlertCircle, Trash2, FolderOpen, RefreshCw 
-} from 'lucide-react'
-import { 
-  decodeAudioFile, decodeAudioFromUrl, detectBPM, detectKey, detectOutro, detectIntro, areKeysCompatible, detectHighsPosition 
-} from './utils/audioAnalyzer'
-import { parseFilename } from './utils/fileAnalyzer'
-import { DEMO_TRACKS } from './constants/demoTracks'
-import { formatTime } from './utils/formatTime'
-import Header from './components/Header'
-import EqKnob from './components/EqKnob'
-import Waveform from './components/Waveform'
-import LibraryPanel from './components/LibraryPanel'
-import { useAudioEngine } from './hooks/useAudioEngine'
-import Deck from './components/Deck'
-import MixMaster from './components/MixMaster'
-import MixerPanel from './components/MixerPanel'
-import AutoloadToast from './components/AutoloadToast'
+import React from 'react';
+import Header from './components/Header';
+import LibraryPanel from './components/LibraryPanel';
+import MixMaster from './components/MixMaster';
+import Deck from './components/Deck';
+import MixerPanel from './components/MixerPanel';
+import AutoloadToast from './components/AutoloadToast';
+import { useLibraryManager } from './hooks/useLibraryManager';
+import { useAudioEngine } from './hooks/useAudioEngine';
 
+const addLog = (msg) => console.log("[DJ Engine]", msg);
 
 export default function App() {
-  // --- STATE ---
-  const [library, setLibrary] = useState([]);
-  const [analyzingFile, setAnalyzingFile] = useState(null);
-  const [analyzingProgress, setAnalyzingProgress] = useState("");
-  const addLog = (msg) => console.log("[DJ Engine]", msg);
+  // Audio engine forward declaration helper for library manager
+  const audioCtxRefPlaceholder = React.useRef(null);
+  const initAudioPlaceholder = React.useCallback(() => {}, []);
 
-  const updateTrackCuePoints = (trackId, introTime, outroTime, cueTime) => {
-    setLibrary(prev => prev.map(track => {
-      if (track.id === trackId) {
-        return {
-          ...track,
-          intro: introTime !== undefined ? introTime : track.intro,
-          outro: outroTime !== undefined ? outroTime : track.outro,
-          cue: cueTime !== undefined ? cueTime : track.cue
-        };
-      }
-      return track;
-    }));
-  };
+  const {
+    library,
+    analyzingFile,
+    analyzingProgress,
+    updateTrackCuePoints,
+    handleFileUpload,
+    loadAllDemos,
+    deleteTrack,
+    clearLibrary
+  } = useLibraryManager({
+    initAudio: () => engineInitAudioRef.current?.(),
+    audioCtxRef: audioCtxRefPlaceholder,
+    addLog
+  });
+
+  const audioEngine = useAudioEngine({
+    library,
+    addLog,
+    onUpdateTrackCuePoints: updateTrackCuePoints
+  });
 
   const {
     deckA,
@@ -57,7 +52,6 @@ export default function App() {
     changeMasterBpm,
     djMode,
     setDjMode,
-    autoDj,
     autoDjStyle,
     setAutoDjStyle,
     eqOrder,
@@ -66,181 +60,33 @@ export default function App() {
     playedTrackIds,
     sessionElapsedTime,
     activeDeckId,
-    setActiveDeckId,
     initAudio,
     audioCtxRef,
     fxState,
     updateFx,
     toggleVinylMode,
-    startScratch,
-    updateScratch,
-    stopScratch,
-    toggleDeckLoop,
     updateDeckCuePoints,
     autoloadCountdown,
     autoloadNotification,
-    dismissAutoloadNotification
-  } = useAudioEngine({ library, addLog, onUpdateTrackCuePoints: updateTrackCuePoints });
+    dismissAutoloadNotification,
+    toggleDeckLoop
+  } = audioEngine;
 
-  // --- AUDIO FILE UPLOAD & ANALYSIS ---
-  const handleFileUpload = async (e) => {
-    e.preventDefault();
-    const files = e.target?.files 
-      ? Array.from(e.target.files) 
-      : Array.from(e.dataTransfer?.files || []);
-    if (files.length === 0) return;
+  // Sync refs for library manager initialization
+  audioCtxRefPlaceholder.current = audioCtxRef.current;
+  const engineInitAudioRef = React.useRef(initAudio);
+  React.useEffect(() => {
+    engineInitAudioRef.current = initAudio;
+    audioCtxRefPlaceholder.current = audioCtxRef.current;
+  });
 
-    initAudio();
-    const ctx = audioCtxRef.current;
-
-    for (const file of files) {
-      setAnalyzingFile(file.name);
-      setAnalyzingProgress("Cargando y decodificando audio...");
-      addLog(`Cargando archivo: "${file.name}"...`);
-
-      try {
-        const decodedBuffer = await decodeAudioFile(file, ctx);
-        
-        setAnalyzingProgress("Analizando tempo (BPM)...");
-        const bpmData = await detectBPM(decodedBuffer);
-        const bpm = bpmData.bpm;
-        const firstBeatOffset = bpmData.firstBeatOffset;
-        
-        setAnalyzingProgress("Detectando escala musical...");
-        const keyData = await detectKey(decodedBuffer);
-        
-        setAnalyzingProgress("Detectando punto de salida (Outro)...");
-        const outroTime = detectOutro(decodedBuffer);
-
-        setAnalyzingProgress("Detectando punto de entrada (Intro)...");
-        const introTime = detectIntro(decodedBuffer, bpm);
-
-        setAnalyzingProgress("Analizando posición de agudos...");
-        const highsPosition = await detectHighsPosition(decodedBuffer);
-
-        const { artist, title } = parseFilename(file.name);
-
-        const newTrack = {
-          id: 'local-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-          title: title,
-          artist: artist,
-          bpm: bpm,
-          key: keyData.camelot,
-          keyName: keyData.keyName,
-          outro: outroTime,
-          intro: introTime,
-          highsPosition: highsPosition,
-          cue: 0,
-          firstBeatOffset: firstBeatOffset,
-          duration: decodedBuffer.duration,
-          buffer: decodedBuffer,
-          isDemo: false
-        };
-
-        setLibrary(prev => [newTrack, ...prev]);
-        addLog(`Analizado con éxito: "${newTrack.title}" (${bpm} BPM, Tono: ${keyData.camelot}, Intro/Drop: ${introTime.toFixed(1)}s, Outro: ${outroTime.toFixed(1)}s)`);
-      } catch (err) {
-        console.error(err);
-        addLog(`Error analizando "${file.name}": ${err.message}`);
-      }
-    }
-    
-    setAnalyzingFile(null);
-    setAnalyzingProgress("");
-  };
-
-  // Load a demo track from URL
-  const loadDemoTrack = async (demoTrack) => {
-    initAudio();
-    const ctx = audioCtxRef.current;
-    
-    setAnalyzingFile(demoTrack.title);
-    setAnalyzingProgress("Descargando de internet y decodificando...");
-    addLog(`Cargando pista demo: "${demoTrack.title}"...`);
-
-    try {
-      const decodedBuffer = await decodeAudioFromUrl(demoTrack.url, ctx);
-      
-      setAnalyzingProgress("Analizando tempo (BPM)...");
-      const bpmData = await detectBPM(decodedBuffer);
-      const bpm = bpmData.bpm;
-      const firstBeatOffset = bpmData.firstBeatOffset;
-      
-      setAnalyzingProgress("Analizando tono (Camelot)...");
-      const keyData = await detectKey(decodedBuffer);
-      
-      setAnalyzingProgress("Analizando outro...");
-      const outroTime = detectOutro(decodedBuffer);
-
-      setAnalyzingProgress("Analizando intro...");
-      const introTime = detectIntro(decodedBuffer, bpm);
-
-      setAnalyzingProgress("Analizando agudos...");
-      const highsPosition = await detectHighsPosition(decodedBuffer);
-
-      const analyzedTrack = {
-        ...demoTrack,
-        bpm: demoTrack.bpm !== undefined ? demoTrack.bpm : bpm,
-        key: demoTrack.key !== undefined ? demoTrack.key : keyData.camelot,
-        keyName: demoTrack.keyName !== undefined ? keyData.keyName : keyData.keyName,
-        outro: demoTrack.outro !== undefined ? demoTrack.outro : outroTime,
-        intro: demoTrack.intro !== undefined ? demoTrack.intro : introTime,
-        cue: demoTrack.cue !== undefined ? demoTrack.cue : 0,
-        firstBeatOffset: demoTrack.firstBeatOffset !== undefined ? demoTrack.firstBeatOffset : firstBeatOffset,
-        highsPosition: demoTrack.highsPosition !== undefined ? demoTrack.highsPosition : highsPosition,
-        duration: decodedBuffer.duration,
-        buffer: decodedBuffer
-      };
-
-      setLibrary(prev => {
-        const cleaned = prev.filter(t => t.id !== demoTrack.id);
-        return [...cleaned, analyzedTrack];
-      });
-
-      addLog(`Demo cargada con éxito: "${analyzedTrack.title}" (${bpm} BPM, Tono: ${keyData.camelot}, Intro/Drop: ${introTime.toFixed(1)}s, Outro: ${outroTime.toFixed(1)}s)`);
-    } catch (err) {
-      console.error(err);
-      addLog(`Error cargando demo: ${err.message}. Intentando fallback local.`);
-      addLog(`Consejo: Sube tus propios archivos MP3 locales arrastrándolos aquí para saltar las restricciones de CORS.`);
-    }
-    
-    setAnalyzingFile(null);
-    setAnalyzingProgress("");
-  };
-
-  // Load all 3 demo tracks
-  const loadAllDemos = async () => {
-    for (const track of DEMO_TRACKS) {
-      await loadDemoTrack(track);
-    }
-  };
-
-  // Delete track from library
-  const deleteTrack = (id, e) => {
-    e.stopPropagation();
-    setLibrary(prev => prev.filter(t => t.id !== id));
-  };
-
-  // Clear all tracks from library
-  const clearLibrary = () => {
-    setLibrary([]);
-    addLog("Biblioteca vaciada.");
-  };
-
-  // --- ACTIVE KEY AND COMPATIBILITY CHECKS ---
   const activeTrack = activeDeckId === 'A' ? deckA.track : deckB.track;
-
 
   return (
     <div className="container">
-      {/* --- HEADER --- */}
       <Header isPlaying={deckA.isPlaying || deckB.isPlaying} />
 
-      {/* --- APP MAIN GRID --- */}
       <div className="app-grid">
-        
-        {/* --- LEFT SIDEBAR: LIBRARY MANAGER --- */}
-        {/* --- LEFT SIDEBAR: LIBRARY MANAGER --- */}
         <LibraryPanel
           library={library}
           activeTrack={activeTrack}
@@ -257,9 +103,7 @@ export default function App() {
           djMode={djMode}
         />
 
-        {/* --- CENTER SECTION: DECKS & MIXER --- */}
         <main className="decks-area">
-          {/* Mix Master Panel */}
           <MixMaster
             masterBpm={masterBpm}
             onChangeMasterBpm={changeMasterBpm}
@@ -273,7 +117,6 @@ export default function App() {
             transitionState={transitionState}
           />
 
-          {/* Decks Grid */}
           <div className="decks-grid">
             <Deck
               deckId="A"
@@ -285,7 +128,7 @@ export default function App() {
               onJumpToOutro={() => jumpToOutro('A')}
               onPitchChange={(val) => handlePitchChange('A', val)}
               onToggleVinyl={() => toggleVinylMode('A')}
-              onMarkerMove={updateDeckCuePoints}
+              onMarkerMove={(markerType, newTime) => updateDeckCuePoints('A', markerType, newTime)}
               accentColor="cyan"
               djMode={djMode}
               autoloadSecondsLeft={autoloadCountdown.A}
@@ -300,14 +143,13 @@ export default function App() {
               onJumpToOutro={() => jumpToOutro('B')}
               onPitchChange={(val) => handlePitchChange('B', val)}
               onToggleVinyl={() => toggleVinylMode('B')}
-              onMarkerMove={updateDeckCuePoints}
+              onMarkerMove={(markerType, newTime) => updateDeckCuePoints('B', markerType, newTime)}
               accentColor="pink"
               djMode={djMode}
               autoloadSecondsLeft={autoloadCountdown.B}
             />
           </div>
 
-          {/* Central Mixer Panel */}
           <MixerPanel
             deckA={deckA}
             deckB={deckB}
@@ -323,10 +165,8 @@ export default function App() {
             onToggleLoop={toggleDeckLoop}
           />
         </main>
-
       </div>
 
-      {/* Autoload Toast Notification */}
       <AutoloadToast
         notification={autoloadNotification}
         onDismiss={dismissAutoloadNotification}
