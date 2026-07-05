@@ -7,20 +7,20 @@ Reducir `useAudioDeck.js` de 546 líneas a ~180 líneas extrayendo la animación
 
 ## Tareas
 
-- [ ] Crear `src/hooks/useDeckPlayback.js` (~120 líneas)
+- [x] Crear `src/hooks/useDeckPlayback.js` (~120 líneas)
   - Extraer el loop `requestAnimationFrame` que actualiza `currentTime`.
   - Manejo de fin de canción (`onPlaybackEnded`).
   - Verificación de límites en tiempo real.
 
-- [ ] Crear `src/hooks/useDeckLoop.js` (~90 líneas)
+- [x] Crear `src/hooks/useDeckLoop.js` (~90 líneas)
   - Lógica de activación, desactivación y redimensionamiento de loops rítmicos (`toggleDeckLoop`).
   - Cálculo de barras a partir de BPM y `firstBeatOffset`.
 
-- [ ] Simplificar `scratchEngine.js` & proxies en `useAudioDeck.js`
+- [x] Simplificar `scratchEngine.js` & proxies en `useAudioDeck.js`
   - Eliminar los proxy getters dinámicos de `scratchRefs` (líneas 66-107 en `useAudioDeck.js`).
   - Pasar referencias directas o simplificar la firma de invocación de scratch.
 
-- [ ] Refactorizar `src/hooks/useAudioDeck.js`
+- [x] Refactorizar `src/hooks/useAudioDeck.js`
   - Mantener únicamente: estado central del deck, creación e inicialización de nodos Web Audio (`audioGraph.js`), métodos `loadTrack`, `playDeckSource`, `stopDeckSource`, `seekTo`, `updatePitch`, `handleVolumeChange` y `handleEqChange`.
 
 ---

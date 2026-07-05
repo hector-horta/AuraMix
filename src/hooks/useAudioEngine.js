@@ -36,19 +36,20 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   // Audio Context Ref
   const audioCtxRef = useRef(null);
 
-  // Initialize Web Audio Context lazily
-  function initAudio() {
-    if (audioCtxRef.current) return;
-    
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioContextClass();
-    audioCtxRef.current = ctx;
-    
-    deckA.init(ctx);
-    deckB.init(ctx);
+  // Initialize Web Audio Context lazily and return instance
+  const initAudio = useCallback(() => {
+    if (!audioCtxRef.current) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContextClass();
+      audioCtxRef.current = ctx;
+      
+      deckA.init(ctx);
+      deckB.init(ctx);
 
-    addLog("Web Audio Engine inicializado correctamente.");
-  }
+      addLog("Web Audio Engine inicializado correctamente.");
+    }
+    return audioCtxRef.current;
+  }, [addLog]);
 
   // --- Sub-hook 1: Autoload Manager ---
   const {
@@ -65,7 +66,6 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   }, []);
 
   // --- Deck Instances ---
-  // Forward ref declaration for loadTrackIntoDeck binding
   const loadTrackIntoDeckRef = useRef(null);
 
   const deckA = useAudioDeck({
@@ -261,7 +261,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
         triggerAutomatedTransition('A', 'B', track, loadTrackIntoDeckRef.current);
       }
     }
-  }, [deckA, deckB, masterBpm, addLog, cancelAutoload, triggerAutomatedTransition]);
+  }, [deckA, deckB, masterBpm, addLog, cancelAutoload, triggerAutomatedTransition, initAudio]);
 
   loadTrackIntoDeckRef.current = loadTrackIntoDeck;
 

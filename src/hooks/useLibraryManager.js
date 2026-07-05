@@ -15,7 +15,7 @@ import { DEMO_TRACKS } from '../constants/demoTracks';
  * Custom Hook: useLibraryManager
  * Encapsulates track library state, file uploads, online demo loading, and track analysis.
  */
-export function useLibraryManager({ initAudio, audioCtxRef, addLog }) {
+export function useLibraryManager({ initAudio, addLog }) {
   const [library, setLibrary] = useState([]);
   const [analyzingFile, setAnalyzingFile] = useState(null);
   const [analyzingProgress, setAnalyzingProgress] = useState("");
@@ -41,8 +41,7 @@ export function useLibraryManager({ initAudio, audioCtxRef, addLog }) {
       : Array.from(e.dataTransfer?.files || []);
     if (files.length === 0) return;
 
-    initAudio();
-    const ctx = audioCtxRef.current;
+    const ctx = initAudio();
 
     for (const file of files) {
       setAnalyzingFile(file.name);
@@ -98,11 +97,10 @@ export function useLibraryManager({ initAudio, audioCtxRef, addLog }) {
     
     setAnalyzingFile(null);
     setAnalyzingProgress("");
-  }, [initAudio, audioCtxRef, addLog]);
+  }, [initAudio, addLog]);
 
   const loadDemoTrack = useCallback(async (demoTrack) => {
-    initAudio();
-    const ctx = audioCtxRef.current;
+    const ctx = initAudio();
     
     setAnalyzingFile(demoTrack.title);
     setAnalyzingProgress("Descargando de internet y decodificando...");
@@ -156,7 +154,7 @@ export function useLibraryManager({ initAudio, audioCtxRef, addLog }) {
     
     setAnalyzingFile(null);
     setAnalyzingProgress("");
-  }, [initAudio, audioCtxRef, addLog]);
+  }, [initAudio, addLog]);
 
   const loadAllDemos = useCallback(async () => {
     for (const track of DEMO_TRACKS) {

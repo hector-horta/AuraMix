@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import Header from './components/Header';
 import LibraryPanel from './components/LibraryPanel';
 import MixMaster from './components/MixMaster';
@@ -11,9 +11,7 @@ import { useAudioEngine } from './hooks/useAudioEngine';
 const addLog = (msg) => console.log("[DJ Engine]", msg);
 
 export default function App() {
-  // Audio engine forward declaration helper for library manager
-  const audioCtxRefPlaceholder = React.useRef(null);
-  const initAudioPlaceholder = React.useCallback(() => {}, []);
+  const engineInitAudioRef = useRef(null);
 
   const {
     library,
@@ -26,7 +24,6 @@ export default function App() {
     clearLibrary
   } = useLibraryManager({
     initAudio: () => engineInitAudioRef.current?.(),
-    audioCtxRef: audioCtxRefPlaceholder,
     addLog
   });
 
@@ -61,7 +58,6 @@ export default function App() {
     sessionElapsedTime,
     activeDeckId,
     initAudio,
-    audioCtxRef,
     fxState,
     updateFx,
     toggleVinylMode,
@@ -72,13 +68,9 @@ export default function App() {
     toggleDeckLoop
   } = audioEngine;
 
-  // Sync refs for library manager initialization
-  audioCtxRefPlaceholder.current = audioCtxRef.current;
-  const engineInitAudioRef = React.useRef(initAudio);
-  React.useEffect(() => {
+  useEffect(() => {
     engineInitAudioRef.current = initAudio;
-    audioCtxRefPlaceholder.current = audioCtxRef.current;
-  });
+  }, [initAudio]);
 
   const activeTrack = activeDeckId === 'A' ? deckA.track : deckB.track;
 
@@ -128,7 +120,7 @@ export default function App() {
               onJumpToOutro={() => jumpToOutro('A')}
               onPitchChange={(val) => handlePitchChange('A', val)}
               onToggleVinyl={() => toggleVinylMode('A')}
-              onMarkerMove={(markerType, newTime) => updateDeckCuePoints('A', markerType, newTime)}
+              onMarkerMove={(deckId, markerType, newTime) => updateDeckCuePoints(deckId, markerType, newTime)}
               accentColor="cyan"
               djMode={djMode}
               autoloadSecondsLeft={autoloadCountdown.A}
@@ -143,7 +135,7 @@ export default function App() {
               onJumpToOutro={() => jumpToOutro('B')}
               onPitchChange={(val) => handlePitchChange('B', val)}
               onToggleVinyl={() => toggleVinylMode('B')}
-              onMarkerMove={(markerType, newTime) => updateDeckCuePoints('B', markerType, newTime)}
+              onMarkerMove={(deckId, markerType, newTime) => updateDeckCuePoints(deckId, markerType, newTime)}
               accentColor="pink"
               djMode={djMode}
               autoloadSecondsLeft={autoloadCountdown.B}

@@ -7,21 +7,21 @@ Resolver la causa principal de bugs y stale closures en la aplicación. Reducir 
 
 ## Tareas
 
-- [ ] Crear `src/hooks/useTransitionController.js` (~160 líneas)
+- [x] Crear `src/hooks/useTransitionController.js` (~160 líneas)
   - Extraer `triggerAutomatedTransition`.
   - Extraer programación de rampa de volumen, EQ swap, bassline swap y jukebox transition.
   - Gestión del estado `transitionState` (`active`, `phase`, `progress`).
   - Limpieza de `transitionTimeoutsRef`.
 
-- [ ] Crear `src/hooks/useAutoloadManager.js` (~110 líneas)
+- [x] Crear `src/hooks/useAutoloadManager.js` (~110 líneas)
   - Extraer inicialización y manejo del `autoloadScheduler`.
   - Manejo de estados `autoloadCountdown` (segundos restantes por deck) y `autoloadNotification` (toast).
   - Eliminación de dependencias circulares con `loadTrackIntoDeckRef`.
 
-- [ ] Crear `src/hooks/useSessionTimer.js` (~50 líneas)
+- [x] Crear `src/hooks/useSessionTimer.js` (~50 líneas)
   - Extraer el temporizador de tiempo transcurrido de la sesión (`sessionElapsedTime`).
 
-- [ ] Refactorizar `useAudioEngine.js`
+- [x] Refactorizar `useAudioEngine.js`
   - Reorganizar como orquestador primario:
     - Instanciar `deckA` y `deckB`.
     - Usar `useTransitionController`.

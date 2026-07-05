@@ -7,20 +7,20 @@ Limpiar la capa de presentación de la aplicación, desacoplando la gestión de 
 
 ## Tareas
 
-- [ ] Crear `src/hooks/useLibraryManager.js` (~110 líneas)
+- [x] Crear `src/hooks/useLibraryManager.js` (~110 líneas)
   - Extraer manejo de la biblioteca de canciones (`library`).
   - Extraer flujo de upload de archivos locales (`handleFileUpload`) y análisis.
   - Extraer carga de demos en línea (`loadDemoTrack`, `loadAllDemos`).
   - Extraer eliminación y vaciado de biblioteca.
 
-- [ ] Crear `src/components/HarmonyWheel.jsx` (~80 líneas)
+- [x] Crear `src/components/HarmonyWheel.jsx` (~80 líneas)
   - Extraer la grilla de claves compatibles (anterior, actual, siguiente, relativa) que actualmente vive en `MixMaster.jsx` (líneas 71-91 y 222-281).
 
-- [ ] Simplificar `src/App.jsx`
+- [x] Simplificar `src/App.jsx`
   - Reducir de 336 a ~120 líneas.
   - Dejar a `App.jsx` únicamente la estructura general del layout y pasar props a `Header`, `LibraryPanel`, `MixMaster`, `Deck` y `MixerPanel`.
 
-- [ ] Modularizar CSS masivos
+- [x] Modularizar CSS masivos
   - Dividir `MixMaster.css` (698 líneas) extrayendo `HarmonyWheel.css` y `EqOrderPills.css`.
 
 ---
