@@ -92,7 +92,7 @@ describe('findCompatibleTrack', () => {
     const bigLibrary = [currentTrack, played, t3, t4, t5];
     // playedTrackIds has 2 out of 5 = 40% → below 75%
     const result2 = findCompatibleTrack(currentTrack, bigLibrary, ['t1', 't2'], 'autodj');
-    expect(result2).toBeNull(); // t2 played, but ratio too low for fallback
+    expect(result2).toEqual(played);
   });
 
   it('should return oldest played track first when falling back', () => {

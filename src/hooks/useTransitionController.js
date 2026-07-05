@@ -185,7 +185,7 @@ export function useTransitionController({
         } else {
           addLog(`¡Mezcla completada! Deck ${toDeckId} ahora en vivo tras el DROP.`);
         }
-        scheduler.queue(fromDeckId, targetTrack, djModeRef.current);
+        scheduler.queue(fromDeckId, targetTrack, djModeRef.current, fromDeckInst.state.track?.id);
       }, completionTime * 1000);
       
       transitionTimeoutsRef.current.push(tId);

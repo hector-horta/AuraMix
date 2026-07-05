@@ -61,8 +61,8 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     dismissAutoloadNotification
   } = useAutoloadManager({ addLog });
 
-  const findCompatibleTrack = useCallback((currentTrack) => {
-    return findCompatible(currentTrack, libraryRef.current, playedTrackIdsRef.current, djModeRef.current);
+  const findCompatibleTrack = useCallback((currentTrack, excludeTrackId = null) => {
+    return findCompatible(currentTrack, libraryRef.current, playedTrackIdsRef.current, djModeRef.current, excludeTrackId);
   }, []);
 
   // --- Deck Instances ---

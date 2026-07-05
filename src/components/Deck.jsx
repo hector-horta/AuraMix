@@ -63,16 +63,7 @@ export default function Deck({
           {autoloadSecondsLeft != null && autoloadSecondsLeft > 0 && (
             <AutoloadCountdown secondsLeft={autoloadSecondsLeft} />
           )}
-          <div className="vinyl-toggle-container">
-            <span className="vinyl-toggle-label">VINYL</span>
-            <button 
-              onClick={onToggleVinyl}
-              className={`vinyl-toggle-btn ${deck.vinylMode ? 'active' : ''}`}
-              title="Vinyl Mode: ON para scratch y tape-stop, OFF para pitch bending tradicional"
-            >
-              {deck.vinylMode ? 'ON' : 'OFF'}
-            </button>
-          </div>
+
           {deck.track && (
             <span className="deck-key-display">{deck.track.key}</span>
           )}

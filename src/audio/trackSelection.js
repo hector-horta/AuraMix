@@ -11,41 +11,90 @@ import { areKeysCompatible } from '../utils/audioAnalyzer';
  * @param {Array} library - Array of all available tracks.
  * @param {Array} playedTrackIds - Array of already-played track IDs.
  * @param {string} djMode - Current DJ mode ('manual', 'autodj', 'jukebox').
+ * @param {string|null} excludeTrackId - Optional track ID to exclude (e.g. track currently sitting on target deck).
  * @returns {Object|null} A compatible track, or null if none found.
  */
-export function findCompatibleTrack(currentTrack, library, playedTrackIds = [], djMode = 'autodj') {
+export function findCompatibleTrack(currentTrack, library, playedTrackIds = [], djMode = 'autodj', excludeTrackId = null) {
   if (!currentTrack || !library || library.length === 0) return null;
 
-  // Get all compatible tracks (matching key & BPM within 5%)
-  const compatibleTracks = library.filter(track => {
-    // Exclude current track
+  // Candidate pool excluding current active track and target deck's current track
+  const availableTracks = library.filter(track => {
     if (track.id === currentTrack.id) return false;
-
-    const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
-    const bpmCompatible = djMode === 'jukebox' ? true : (bpmDiffPercent <= 0.05);
-    const keyCompatible = areKeysCompatible(track.key, currentTrack.key);
-
-    return bpmCompatible && keyCompatible;
+    if (excludeTrackId && track.id === excludeTrackId) return false;
+    return true;
   });
 
-  const playedRatio = library.length > 0 ? playedTrackIds.length / library.length : 0;
-
-  const unplayedCandidates = compatibleTracks.filter(track => !playedTrackIds.includes(track.id));
-  const playedCandidates = compatibleTracks.filter(track => playedTrackIds.includes(track.id));
-
-  if (unplayedCandidates.length > 0) {
-    return unplayedCandidates[0];
+  if (availableTracks.length === 0) {
+    if (excludeTrackId) {
+      return findCompatibleTrack(currentTrack, library, playedTrackIds, djMode, null);
+    }
+    return null;
   }
 
-  // Fallback to played tracks if >= 75% of the library has been played
-  if (playedRatio >= 0.75 && playedCandidates.length > 0) {
-    // Sort played candidates by their appearance in playedTrackIds (oldest played first)
-    playedCandidates.sort((a, b) => {
+  // Helper for BPM compatibility check (±5.0% in autodj mode, ignored in jukebox)
+  const isBpmCompatible = (track) => {
+    if (djMode === 'jukebox') return true;
+    const bpmDiffPercent = Math.abs(track.bpm - currentTrack.bpm) / currentTrack.bpm;
+    return bpmDiffPercent <= 0.05;
+  };
+
+  // 1. Unplayed + Key Compatible + BPM Compatible
+  const unplayedKeyAndBpm = availableTracks.filter(track => {
+    const isUnplayed = !playedTrackIds.includes(track.id);
+    const keyMatch = areKeysCompatible(track.key, currentTrack.key);
+    return isUnplayed && keyMatch && isBpmCompatible(track);
+  });
+
+  if (unplayedKeyAndBpm.length > 0) {
+    return unplayedKeyAndBpm[0];
+  }
+
+  // 2. Unplayed + BPM Compatible (if key compatible tracks are exhausted and session is active)
+  if (playedTrackIds.length > 0) {
+    const unplayedBpmOnly = availableTracks.filter(track => {
+      const isUnplayed = !playedTrackIds.includes(track.id);
+      return isUnplayed && isBpmCompatible(track);
+    });
+
+    if (unplayedBpmOnly.length > 0) {
+      return unplayedBpmOnly[0];
+    }
+  }
+
+  // 3. Played + Key Compatible + BPM Compatible (oldest played first)
+  const playedKeyAndBpm = availableTracks.filter(track => {
+    const isPlayed = playedTrackIds.includes(track.id);
+    const keyMatch = areKeysCompatible(track.key, currentTrack.key);
+    return isPlayed && keyMatch && isBpmCompatible(track);
+  });
+
+  if (playedKeyAndBpm.length > 0) {
+    playedKeyAndBpm.sort((a, b) => {
       const indexA = playedTrackIds.indexOf(a.id);
       const indexB = playedTrackIds.indexOf(b.id);
       return indexA - indexB;
     });
-    return playedCandidates[0];
+    return playedKeyAndBpm[0];
+  }
+
+  // 4. Played + BPM Compatible (oldest played first)
+  const playedBpmOnly = availableTracks.filter(track => {
+    const isPlayed = playedTrackIds.includes(track.id);
+    return isPlayed && isBpmCompatible(track);
+  });
+
+  if (playedBpmOnly.length > 0) {
+    playedBpmOnly.sort((a, b) => {
+      const indexA = playedTrackIds.indexOf(a.id);
+      const indexB = playedTrackIds.indexOf(b.id);
+      return indexA - indexB;
+    });
+    return playedBpmOnly[0];
+  }
+
+  // 5. Retry without excludeTrackId if excludeTrackId prevented finding a track
+  if (excludeTrackId) {
+    return findCompatibleTrack(currentTrack, library, playedTrackIds, djMode, null);
   }
 
   return null;
@@ -54,7 +103,7 @@ export function findCompatibleTrack(currentTrack, library, playedTrackIds = [], 
 /**
  * Creates an autoload scheduler that manages 10-second countdown timers per deck.
  * Emits tick events each second for UI countdown display.
- * @param {Function} findFn - Function to find a compatible track: (activeTrack) => track|null
+ * @param {Function} findFn - Function to find a compatible track: (activeTrack, excludeId) => track|null
  * @param {Function} loadFn - Function to load a track into a deck: (track, deckId, startAuto, isAutoload) => boolean
  * @param {Function} addLog - Logging function.
  * @param {Object} callbacks - UI notification callbacks.
@@ -75,8 +124,9 @@ export function createAutoloadScheduler(findFn, loadFn, addLog, callbacks = {}) 
    * @param {string} stoppedDeckId - 'A' or 'B'
    * @param {Object} currentActiveTrack - The track currently playing on the other deck.
    * @param {string} djMode - Current DJ mode.
+   * @param {string|null} targetDeckCurrentTrackId - Optional track ID sitting on stopped deck to avoid re-loading.
    */
-  function queue(stoppedDeckId, currentActiveTrack, djMode) {
+  function queue(stoppedDeckId, currentActiveTrack, djMode, targetDeckCurrentTrackId = null) {
     if (djMode === 'manual') return;
 
     // Clear any existing timer/interval for this deck
@@ -100,7 +150,10 @@ export function createAutoloadScheduler(findFn, loadFn, addLog, callbacks = {}) 
       if (left <= 0) {
         clearDeck(stoppedDeckId);
 
-        const compatibleTrack = findFn(currentActiveTrack);
+        const compatibleTrack = targetDeckCurrentTrackId !== null
+          ? findFn(currentActiveTrack, targetDeckCurrentTrackId)
+          : findFn(currentActiveTrack);
+
         if (compatibleTrack) {
           addLog(`${modeLabel}: Cargando automáticamente "${compatibleTrack.title}" en Deck ${stoppedDeckId}.`);
           const success = loadFn(compatibleTrack, stoppedDeckId, false, true);

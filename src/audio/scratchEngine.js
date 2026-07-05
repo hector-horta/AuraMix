@@ -7,16 +7,20 @@
  * Handle the start of a scratch or bend interaction.
  * @param {Object} nodes - The deck's audio node references.
  * @param {AudioContext} ctx - The Web Audio context.
- * @param {Object} deck - Current deck state { vinylMode, isPlaying, ... }.
+ * @param {Object} deck - Current deck state { vinylMode, isPlaying, currentTime, ... }.
  * @param {boolean} isUpperHalf - Whether the touch/click is on the upper half of the waveform.
  * @param {number} clientX - The X coordinate of the pointer event.
- * @param {Object} refs - Mutable refs { isScratchingRef, dragModeRef, lastXRef, lastTimeRef }.
+ * @param {Object} refs - Mutable refs { isScratchingRef, dragModeRef, lastXRef, lastTimeRef, initialScratchTimeRef }.
  * @param {string} deckId - 'A' or 'B'.
  * @param {Function} playDeckSource - Function to start the deck source.
  * @returns {'scratch'|'bend'|null} The drag mode that was activated.
  */
 export function handleScratchStart(nodes, ctx, deck, isUpperHalf, clientX, refs, deckId, playDeckSource) {
   if (!nodes.buffer) return null;
+
+  if (refs.initialScratchTimeRef) {
+    refs.initialScratchTimeRef.current[deckId] = deck.currentTime;
+  }
 
   if (deck.vinylMode && isUpperHalf) {
     refs.isScratchingRef.current[deckId] = true;
@@ -122,7 +126,7 @@ export function handleScratchUpdate(nodes, ctx, deck, clientX, width, refs, deck
  * Handle the end of a scratch or bend interaction.
  * @param {Object} nodes - The deck's audio node references.
  * @param {AudioContext} ctx - The Web Audio context.
- * @param {Object} deck - Current deck state { isPlaying, ... }.
+ * @param {Object} deck - Current deck state { isPlaying, duration, ... }.
  * @param {boolean} isQuickClick - Whether this was a quick click (no drag).
  * @param {number} clickPercent - The click position as a percentage of waveform width.
  * @param {Object} refs - Mutable refs.
@@ -141,6 +145,14 @@ export function handleScratchStop(nodes, ctx, deck, isQuickClick, clickPercent, 
   } else {
     if (dragMode === 'scratch') {
       refs.isScratchingRef.current[deckId] = false;
+
+      // Snap back to initial position where scratch started (hip-hop style scratch return)
+      const initialTime = refs.initialScratchTimeRef ? refs.initialScratchTimeRef.current[deckId] : null;
+      if (initialTime !== null && initialTime !== undefined && deck.duration > 0) {
+        const percent = initialTime / deck.duration;
+        seekFn(deckId, percent);
+        nodes.pausedAt = initialTime;
+      }
 
       if (deck.isPlaying) {
         playDeckSource(deckId);
@@ -162,6 +174,9 @@ export function handleScratchStop(nodes, ctx, deck, isQuickClick, clickPercent, 
     }
   }
 
+  if (refs.initialScratchTimeRef) {
+    refs.initialScratchTimeRef.current[deckId] = null;
+  }
   refs.dragModeRef.current[deckId] = null;
   refs.isScratchingRef.current[deckId] = false;
   if (refs.bendTimeoutRef.current[deckId]) {

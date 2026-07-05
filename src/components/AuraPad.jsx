@@ -123,7 +123,7 @@ export default function AuraPad({ fxState, onUpdateFx }) {
       case 'Tape Stop':
         return '---';
       case 'Scratch':
-        return y > 0.5 ? 'Scratch Zone (Vinyl)' : 'Nudge Zone (Pitch)';
+        return 'Scratch Effect (Snap Back)';
       default:
         return `${Math.round(y * 100)}%`;
     }
@@ -198,11 +198,9 @@ export default function AuraPad({ fxState, onUpdateFx }) {
           )}
 
           {selectedFx === 'Scratch' && (
-            <>
-              <div className="pad-scratch-divider"></div>
-              <div className="pad-scratch-zone-label top">SCRATCH ZONE</div>
-              <div className="pad-scratch-zone-label bottom">NUDGE ZONE</div>
-            </>
+            <div className="pad-scratch-zone-label top" style={{ left: '50%', transform: 'translateX(-50%)', top: '12px' }}>
+              SCRATCH ZONE (SNAP BACK)
+            </div>
           )}
 
           {/* Draggable indicator handle */}

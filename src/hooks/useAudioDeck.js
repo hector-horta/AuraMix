@@ -70,7 +70,8 @@ export function useAudioDeck({
     dragModeRef: { current: { A: null, B: null } },
     lastXRef: { current: { A: 0, B: 0 } },
     lastTimeRef: { current: { A: 0, B: 0 } },
-    bendTimeoutRef: { current: { A: null, B: null } }
+    bendTimeoutRef: { current: { A: null, B: null } },
+    initialScratchTimeRef: { current: { A: null, B: null } }
   }).current;
 
   // Sync internal refs with scratchRefs for scratchEngine compatibility
