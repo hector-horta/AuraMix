@@ -5,7 +5,7 @@ import EqOrderPills from './EqOrderPills';
 import HarmonyWheel from './HarmonyWheel';
 import './MixMaster.css';
 
-export default function MixMaster({
+export default React.memo(function MixMaster({
   masterBpm,
   onChangeMasterBpm,
   library,
@@ -203,4 +203,4 @@ export default function MixMaster({
       </div>
     </div>
   );
-}
+});

@@ -82,8 +82,10 @@ export default function App() {
         <LibraryPanel
           library={library}
           activeTrack={activeTrack}
-          deckA={deckA}
-          deckB={deckB}
+          deckATrackId={deckA.track?.id}
+          deckAPlaying={deckA.isPlaying}
+          deckBTrackId={deckB.track?.id}
+          deckBPlaying={deckB.isPlaying}
           analyzingFile={analyzingFile}
           analyzingProgress={analyzingProgress}
           playedTrackIds={playedTrackIds}

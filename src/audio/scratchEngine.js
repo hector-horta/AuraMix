@@ -12,7 +12,7 @@
  * @param {number} clientX - The X coordinate of the pointer event.
  * @param {Object} refs - Mutable refs { isScratchingRef, dragModeRef, lastXRef, lastTimeRef, initialScratchTimeRef }.
  * @param {string} deckId - 'A' or 'B'.
- * @param {Function} playDeckSource - Function to start the deck source.
+ * @param {Function} playDeckSource - Function to start the deck source: (when, pitchOverride) => void.
  * @returns {'scratch'|'bend'|null} The drag mode that was activated.
  */
 export function handleScratchStart(nodes, ctx, deck, isUpperHalf, clientX, refs, deckId, playDeckSource) {
@@ -30,7 +30,7 @@ export function handleScratchStart(nodes, ctx, deck, isUpperHalf, clientX, refs,
 
     if (!deck.isPlaying) {
       // Play deck source silently so it produces scratch sounds when dragged
-      playDeckSource(deckId, 0, -100);
+      playDeckSource(0, -100);
       if (nodes.source) {
         nodes.source.playbackRate.value = 0;
       }
@@ -124,53 +124,49 @@ export function handleScratchUpdate(nodes, ctx, deck, clientX, width, refs, deck
 
 /**
  * Handle the end of a scratch or bend interaction.
+ * On release the track snaps back to the position where the scratch started
+ * (vinyl-style return), or restores normal playback rate after a bend.
  * @param {Object} nodes - The deck's audio node references.
  * @param {AudioContext} ctx - The Web Audio context.
  * @param {Object} deck - Current deck state { isPlaying, duration, ... }.
- * @param {boolean} isQuickClick - Whether this was a quick click (no drag).
- * @param {number} clickPercent - The click position as a percentage of waveform width.
  * @param {Object} refs - Mutable refs.
  * @param {string} deckId - 'A' or 'B'.
- * @param {Function} seekFn - Seek function: (deckId, percent) => void.
- * @param {Function} playDeckSource - Play function: (deckId) => void.
- * @param {Function} stopDeckSource - Stop function: (deckId) => void.
+ * @param {Function} seekFn - Seek function: (percent) => void.
+ * @param {Function} playDeckSource - Play function: () => void.
+ * @param {Function} stopDeckSource - Stop function: () => void.
  */
-export function handleScratchStop(nodes, ctx, deck, isQuickClick, clickPercent, refs, deckId, seekFn, playDeckSource, stopDeckSource) {
+export function handleScratchStop(nodes, ctx, deck, refs, deckId, seekFn, playDeckSource, stopDeckSource) {
   if (!nodes.buffer) return;
 
   const dragMode = refs.dragModeRef.current[deckId];
 
-  if (isQuickClick) {
-    seekFn(deckId, clickPercent);
-  } else {
-    if (dragMode === 'scratch') {
-      refs.isScratchingRef.current[deckId] = false;
+  if (dragMode === 'scratch') {
+    refs.isScratchingRef.current[deckId] = false;
 
-      // Snap back to initial position where scratch started (hip-hop style scratch return)
-      const initialTime = refs.initialScratchTimeRef ? refs.initialScratchTimeRef.current[deckId] : null;
-      if (initialTime !== null && initialTime !== undefined && deck.duration > 0) {
-        const percent = initialTime / deck.duration;
-        seekFn(deckId, percent);
-        nodes.pausedAt = initialTime;
-      }
+    // Snap back to initial position where scratch started (hip-hop style scratch return)
+    const initialTime = refs.initialScratchTimeRef ? refs.initialScratchTimeRef.current[deckId] : null;
+    if (initialTime !== null && initialTime !== undefined && deck.duration > 0) {
+      const percent = initialTime / deck.duration;
+      seekFn(percent);
+      nodes.pausedAt = initialTime;
+    }
 
-      if (deck.isPlaying) {
-        playDeckSource(deckId);
-        if (nodes.source) {
-          const normalRate = 1 + (nodes.pitch / 100);
-          try {
-            nodes.source.playbackRate.setValueAtTime(0.01, ctx.currentTime);
-            nodes.source.playbackRate.linearRampToValueAtTime(normalRate, ctx.currentTime + 0.18);
-          } catch (e) {}
-        }
-      } else {
-        stopDeckSource(deckId);
-      }
-    } else if (dragMode === 'bend') {
+    if (deck.isPlaying) {
+      playDeckSource();
       if (nodes.source) {
         const normalRate = 1 + (nodes.pitch / 100);
-        nodes.source.playbackRate.value = normalRate;
+        try {
+          nodes.source.playbackRate.setValueAtTime(0.01, ctx.currentTime);
+          nodes.source.playbackRate.linearRampToValueAtTime(normalRate, ctx.currentTime + 0.18);
+        } catch (e) {}
       }
+    } else {
+      stopDeckSource();
+    }
+  } else if (dragMode === 'bend') {
+    if (nodes.source) {
+      const normalRate = 1 + (nodes.pitch / 100);
+      nodes.source.playbackRate.value = normalRate;
     }
   }
 

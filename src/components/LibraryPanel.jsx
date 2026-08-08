@@ -6,8 +6,10 @@ import './LibraryPanel.css'
 export default function LibraryPanel({
   library,
   activeTrack,
-  deckA,
-  deckB,
+  deckATrackId,
+  deckAPlaying,
+  deckBTrackId,
+  deckBPlaying,
   analyzingFile,
   analyzingProgress,
   playedTrackIds,
@@ -106,8 +108,10 @@ export default function LibraryPanel({
               key={track.id}
               track={track}
               activeTrack={activeTrack}
-              deckA={deckA}
-              deckB={deckB}
+              deckATrackId={deckATrackId}
+              deckAPlaying={deckAPlaying}
+              deckBTrackId={deckBTrackId}
+              deckBPlaying={deckBPlaying}
               playedTrackIds={playedTrackIds}
               libraryLength={library.length}
               djMode={djMode}

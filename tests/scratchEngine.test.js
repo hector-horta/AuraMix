@@ -12,6 +12,7 @@ function createMockRefs() {
     lastXRef: { current: { A: 0, B: 0 } },
     lastTimeRef: { current: { A: 0, B: 0 } },
     bendTimeoutRef: { current: { A: null, B: null } },
+    initialScratchTimeRef: { current: { A: null, B: null } },
   };
 }
 
@@ -95,7 +96,7 @@ describe('handleScratchStart', () => {
 
     handleScratchStart(nodes, ctx, deck, true, 100, refs, 'A', playDeckSource);
 
-    expect(playDeckSource).toHaveBeenCalledWith('A', 0, -100);
+    expect(playDeckSource).toHaveBeenCalledWith(0, -100);
   });
 
   it('should ramp playback rate to near-zero when playing in scratch mode', () => {
@@ -186,16 +187,16 @@ describe('handleScratchUpdate', () => {
 });
 
 describe('handleScratchStop', () => {
-  it('should call seekFn on quick click', () => {
+  it('should not seek on a quick click (no drag)', () => {
     const nodes = createMockNodes();
     const ctx = new AudioContext();
     const refs = createMockRefs();
     const deck = { isPlaying: true };
     const seekFn = vi.fn();
 
-    handleScratchStop(nodes, ctx, deck, true, 0.5, refs, 'A', seekFn, vi.fn(), vi.fn());
+    handleScratchStop(nodes, ctx, deck, refs, 'A', seekFn, vi.fn(), vi.fn());
 
-    expect(seekFn).toHaveBeenCalledWith('A', 0.5);
+    expect(seekFn).not.toHaveBeenCalled();
   });
 
   it('should restore playback rate and call playDeckSource after scratch while playing', () => {
@@ -207,9 +208,9 @@ describe('handleScratchStop', () => {
     const deck = { isPlaying: true };
     const playDeckSource = vi.fn();
 
-    handleScratchStop(nodes, ctx, deck, false, 0, refs, 'A', vi.fn(), playDeckSource, vi.fn());
+    handleScratchStop(nodes, ctx, deck, refs, 'A', vi.fn(), playDeckSource, vi.fn());
 
-    expect(playDeckSource).toHaveBeenCalledWith('A');
+    expect(playDeckSource).toHaveBeenCalledWith();
     expect(refs.isScratchingRef.current.A).toBe(false);
     expect(refs.dragModeRef.current.A).toBeNull();
   });
@@ -222,9 +223,23 @@ describe('handleScratchStop', () => {
     const deck = { isPlaying: false };
     const stopDeckSource = vi.fn();
 
-    handleScratchStop(nodes, ctx, deck, false, 0, refs, 'A', vi.fn(), vi.fn(), stopDeckSource);
+    handleScratchStop(nodes, ctx, deck, refs, 'A', vi.fn(), vi.fn(), stopDeckSource);
 
-    expect(stopDeckSource).toHaveBeenCalledWith('A');
+    expect(stopDeckSource).toHaveBeenCalledWith();
+  });
+
+  it('should snap back to the scratch start position', () => {
+    const nodes = createMockNodes();
+    const ctx = new AudioContext();
+    const refs = createMockRefs();
+    refs.dragModeRef.current.A = 'scratch';
+    refs.initialScratchTimeRef.current.A = 30;
+    const deck = { isPlaying: false, duration: 120 };
+    const seekFn = vi.fn();
+
+    handleScratchStop(nodes, ctx, deck, refs, 'A', seekFn, vi.fn(), vi.fn());
+
+    expect(seekFn).toHaveBeenCalledWith(30 / 120);
   });
 
   it('should restore normal rate after bend', () => {
@@ -235,7 +250,7 @@ describe('handleScratchStop', () => {
     refs.dragModeRef.current.A = 'bend';
     const deck = { isPlaying: true };
 
-    handleScratchStop(nodes, ctx, deck, false, 0, refs, 'A', vi.fn(), vi.fn(), vi.fn());
+    handleScratchStop(nodes, ctx, deck, refs, 'A', vi.fn(), vi.fn(), vi.fn());
 
     const expectedRate = 1 + (3 / 100);
     expect(nodes.source.playbackRate.value).toBe(expectedRate);
@@ -250,7 +265,7 @@ describe('handleScratchStop', () => {
     refs.bendTimeoutRef.current.B = setTimeout(() => {}, 1000);
     const deck = { isPlaying: true };
 
-    handleScratchStop(nodes, ctx, deck, false, 0, refs, 'B', vi.fn(), vi.fn(), vi.fn());
+    handleScratchStop(nodes, ctx, deck, refs, 'B', vi.fn(), vi.fn(), vi.fn());
 
     expect(refs.dragModeRef.current.B).toBeNull();
     expect(refs.isScratchingRef.current.B).toBe(false);
@@ -263,6 +278,6 @@ describe('handleScratchStop', () => {
     const refs = createMockRefs();
     const deck = { isPlaying: true };
 
-    expect(() => handleScratchStop(nodes, ctx, deck, false, 0, refs, 'A', vi.fn(), vi.fn(), vi.fn())).not.toThrow();
+    expect(() => handleScratchStop(nodes, ctx, deck, refs, 'A', vi.fn(), vi.fn(), vi.fn())).not.toThrow();
   });
 });

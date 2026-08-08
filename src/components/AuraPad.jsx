@@ -40,16 +40,12 @@ export default function AuraPad({ fxState, onUpdateFx }) {
     if (e.target.hasPointerCapture && e.target.hasPointerCapture(e.pointerId)) {
       e.target.releasePointerCapture(e.pointerId);
     }
-    
-    const elapsed = performance.now() - touchStartRef.current.time;
-    const distance = Math.abs(e.clientX - touchStartRef.current.x);
-    const isQuickClick = distance < 6 && elapsed < 220;
 
     const centerX = 0.5;
     const centerY = 0.5;
 
     setCoords({ x: centerX, y: centerY });
-    onUpdateFx(false, selectedFx, centerX, centerY, false, isQuickClick);
+    onUpdateFx(false, selectedFx, centerX, centerY, false);
   };
 
   const updateCoords = (e, isInitialTouch) => {

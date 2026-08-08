@@ -3,11 +3,13 @@ import { Trash2, Clock } from 'lucide-react'
 import { areKeysCompatible } from '../utils/audioAnalyzer'
 import './TrackInfo.css'
 
-export default function TrackInfo({
+function TrackInfo({
   track,
   activeTrack,
-  deckA,
-  deckB,
+  deckATrackId,
+  deckAPlaying,
+  deckBTrackId,
+  deckBPlaying,
   playedTrackIds = [],
   libraryLength = 0,
   djMode,
@@ -31,8 +33,8 @@ export default function TrackInfo({
     isCompatKey = areKeysCompatible(track.key, activeTrack.key);
   }
 
-  const isLoadedOnA = deckA.track?.id === track.id;
-  const isLoadedOnB = deckB.track?.id === track.id;
+  const isLoadedOnA = deckATrackId === track.id;
+  const isLoadedOnB = deckBTrackId === track.id;
   const isCurrentTrack = activeTrack?.id === track.id;
   
   // Actual compatibility calculation (used for badges next to delete button)
@@ -92,18 +94,18 @@ export default function TrackInfo({
       <div className="track-item-actions">
         <div className="load-buttons">
           <button 
-            disabled={isLoadedOnA || isLoadedOnB || deckA.isPlaying}
+            disabled={isLoadedOnA || isLoadedOnB || deckAPlaying}
             onClick={() => onLoadTrack(track, 'A')}
             className="load-deck-btn load-deck-btn-a"
-            title={deckA.isPlaying ? "El Deck A está reproduciendo. No se puede sobrescribir." : "Cargar en Deck A"}
+            title={deckAPlaying ? "El Deck A está reproduciendo. No se puede sobrescribir." : "Cargar en Deck A"}
           >
             Deck A
           </button>
           <button 
-            disabled={isLoadedOnA || isLoadedOnB || deckB.isPlaying}
+            disabled={isLoadedOnA || isLoadedOnB || deckBPlaying}
             onClick={() => onLoadTrack(track, 'B')}
             className="load-deck-btn load-deck-btn-b"
-            title={deckB.isPlaying ? "El Deck B está reproduciendo. No se puede sobrescribir." : "Cargar en Deck B"}
+            title={deckBPlaying ? "El Deck B está reproduciendo. No se puede sobrescribir." : "Cargar en Deck B"}
           >
             Deck B
           </button>
@@ -135,3 +137,5 @@ export default function TrackInfo({
     </div>
   )
 }
+
+export default React.memo(TrackInfo)

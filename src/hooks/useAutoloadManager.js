@@ -9,12 +9,18 @@ export function useAutoloadManager({ addLog }) {
   const [autoloadCountdown, setAutoloadCountdown] = useState({ A: null, B: null });
   const [autoloadNotification, setAutoloadNotification] = useState(null);
   const autoloadSchedulerRef = useRef(null);
+  const findFnRef = useRef(null);
+  const loadFnRef = useRef(null);
 
   const getAutoloadScheduler = useCallback((findCompatibleTrackFn, loadTrackIntoDeckFn) => {
+    // Always keep the latest functions so the scheduler never uses stale closures
+    findFnRef.current = findCompatibleTrackFn;
+    loadFnRef.current = loadTrackIntoDeckFn;
+
     if (!autoloadSchedulerRef.current) {
       autoloadSchedulerRef.current = createAutoloadScheduler(
-        findCompatibleTrackFn,
-        loadTrackIntoDeckFn,
+        (...args) => findFnRef.current(...args),
+        (...args) => loadFnRef.current(...args),
         addLog,
         {
           onTick: (deckId, secondsLeft) => {

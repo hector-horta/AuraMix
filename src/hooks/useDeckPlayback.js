@@ -18,13 +18,14 @@ export function useDeckPlayback({
 }) {
   useEffect(() => {
     let frameId;
+    let ended = false;
 
     const updateProgress = () => {
       const ctx = audioCtxRef.current;
       if (!ctx || !isPlaying) return;
 
       // Skip progress updates while scratching to prevent playhead jitter
-      if (isScratchingRef.current) {
+      if (isScratchingRef.current[deckId]) {
         frameId = requestAnimationFrame(updateProgress);
         return;
       }
@@ -43,8 +44,13 @@ export function useDeckPlayback({
       }
 
       if (current >= duration && duration > 0) {
-        onPlaybackEnded(deckId);
+        // Guard against duplicate end-of-track callbacks between renders
+        if (!ended) {
+          ended = true;
+          onPlaybackEnded(deckId);
+        }
       } else {
+        ended = false;
         setDeck(prev => ({ ...prev, currentTime: current }));
         if (onTimeUpdate) {
           onTimeUpdate(deckId, current);

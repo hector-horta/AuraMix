@@ -58,13 +58,7 @@ export function useAudioDeck({
     activeLoopBars: null
   });
 
-  // Scratch refs - static structure matching scratchEngine expectations
-  const isScratchingRef = useRef(false);
-  const dragModeRef = useRef(null);
-  const lastXRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const bendTimeoutRef = useRef(null);
-
+  // Scratch refs - single shared structure keyed by deckId, shared with scratchEngine
   const scratchRefs = useRef({
     isScratchingRef: { current: { A: false, B: false } },
     dragModeRef: { current: { A: null, B: null } },
@@ -73,13 +67,6 @@ export function useAudioDeck({
     bendTimeoutRef: { current: { A: null, B: null } },
     initialScratchTimeRef: { current: { A: null, B: null } }
   }).current;
-
-  // Sync internal refs with scratchRefs for scratchEngine compatibility
-  scratchRefs.isScratchingRef.current[deckId] = isScratchingRef.current;
-  scratchRefs.dragModeRef.current[deckId] = dragModeRef.current;
-  scratchRefs.lastXRef.current[deckId] = lastXRef.current;
-  scratchRefs.lastTimeRef.current[deckId] = lastTimeRef.current;
-  scratchRefs.bendTimeoutRef.current[deckId] = bendTimeoutRef.current;
 
   // Initialize Web Audio nodes lazily
   const init = (ctx) => {
@@ -327,12 +314,12 @@ export function useAudioDeck({
     }
   };
 
-  const stopScratch = (isQuickClick, clickPercent, onTransitionActiveCheck) => {
+  const stopScratch = (onTransitionActiveCheck) => {
     if (onTransitionActiveCheck && onTransitionActiveCheck()) return;
     const ctx = audioCtxRef.current;
     if (!ctx) return;
 
-    scratchStop(nodesRef.current, ctx, deck, isQuickClick, clickPercent, scratchRefs, deckId, seekTo, playDeckSource, stopDeckSource);
+    scratchStop(nodesRef.current, ctx, deck, scratchRefs, deckId, seekTo, playDeckSource, stopDeckSource);
   };
 
   const loadTrack = (track, isAutoload = false, initialPitch = 0, initialPausedAt = 0) => {
@@ -397,7 +384,7 @@ export function useAudioDeck({
     isPlaying: deck.isPlaying,
     duration: deck.duration,
     nodesRef,
-    isScratchingRef,
+    isScratchingRef: scratchRefs.isScratchingRef,
     setDeck,
     onPlaybackEnded,
     onTimeUpdate

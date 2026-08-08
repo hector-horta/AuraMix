@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Disc, X } from 'lucide-react'
 import './AutoloadToast.css'
 
-export default function AutoloadToast({ notification, onDismiss }) {
+export default React.memo(function AutoloadToast({ notification, onDismiss }) {
   const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
 
@@ -54,4 +54,4 @@ export default function AutoloadToast({ notification, onDismiss }) {
       </button>
     </div>
   )
-}
+})

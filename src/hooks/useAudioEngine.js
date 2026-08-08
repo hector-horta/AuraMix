@@ -36,6 +36,10 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   // Audio Context Ref
   const audioCtxRef = useRef(null);
 
+  // Deck instance refs for stable async callbacks (avoid stale closures in rAF loop)
+  const deckARef = useRef(null);
+  const deckBRef = useRef(null);
+
   // Initialize Web Audio Context lazily and return instance
   const initAudio = useCallback(() => {
     if (!audioCtxRef.current) {
@@ -68,17 +72,48 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
   // --- Deck Instances ---
   const loadTrackIntoDeckRef = useRef(null);
 
+  const handlePlaybackEnded = useCallback((deckId) => {
+    const deckInst = deckId === 'A' ? deckARef.current : deckBRef.current;
+    if (!deckInst) return;
+
+    const nodes = deckInst.nodes;
+    nodes.loopActive = false;
+    nodes.activeLoopBars = null;
+    nodes.loopStart = 0;
+    nodes.loopEnd = 0;
+    if (nodes.source) {
+      nodes.source.loop = false;
+    }
+
+    deckInst.stopDeckSource();
+    deckInst.setState(prev => ({
+      ...prev,
+      isPlaying: false,
+      currentTime: 0,
+      activeLoopBars: null,
+      loopStart: 0,
+      loopEnd: 0,
+      isUserSelected: false,
+      lastPlayedTrackId: prev.track ? prev.track.id : prev.lastPlayedTrackId
+    }));
+    nodes.pausedAt = 0;
+
+    addLog(`Deck ${deckId}: Canción finalizada.`);
+  }, [addLog]);
+
+  const handleTimeUpdate = useCallback((deckId, time) => {
+    if (checkAutoDjTransitionRef.current) {
+      checkAutoDjTransitionRef.current(deckId, time, loadTrackIntoDeckRef.current);
+    }
+  }, []);
+
   const deckA = useAudioDeck({
     deckId: 'A',
     audioCtxRef,
     initAudio,
     addLog,
-    onPlaybackEnded: (id) => handlePlaybackEnded(id),
-    onTimeUpdate: (id, time) => {
-      if (checkAutoDjTransitionRef.current) {
-        checkAutoDjTransitionRef.current(id, time, loadTrackIntoDeckRef.current);
-      }
-    },
+    onPlaybackEnded: handlePlaybackEnded,
+    onTimeUpdate: handleTimeUpdate,
     onSetActiveDeck: (id) => setActiveDeckId(id),
     onSeekMarkerCheck: (id, targetTime) => {
       if (resetCheckedStateRef.current) {
@@ -98,12 +133,8 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     audioCtxRef,
     initAudio,
     addLog,
-    onPlaybackEnded: (id) => handlePlaybackEnded(id),
-    onTimeUpdate: (id, time) => {
-      if (checkAutoDjTransitionRef.current) {
-        checkAutoDjTransitionRef.current(id, time, loadTrackIntoDeckRef.current);
-      }
-    },
+    onPlaybackEnded: handlePlaybackEnded,
+    onTimeUpdate: handleTimeUpdate,
     onSetActiveDeck: (id) => setActiveDeckId(id),
     onSeekMarkerCheck: (id, targetTime) => {
       if (resetCheckedStateRef.current) {
@@ -117,6 +148,9 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     },
     onUpdateTrackCuePoints
   });
+
+  useEffect(() => { deckARef.current = deckA; }, [deckA]);
+  useEffect(() => { deckBRef.current = deckB; }, [deckB]);
 
   // --- Sub-hook 2: Session Timer ---
   const { sessionElapsedTime } = useSessionTimer(deckA.state.isPlaying, deckB.state.isPlaying);
@@ -203,31 +237,6 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
       deckB.nodes.gainNode.gain.value = deckB.state.volume;
     }
   }, [deckA.state.volume, deckB.state.volume, deckA.nodes.gainNode, deckB.nodes.gainNode, transitionState.active]);
-
-  const handlePlaybackEnded = (deckId) => {
-    addLog(`Deck ${deckId}: Canción finalizada.`);
-    const nodes = deckId === 'A' ? deckA.nodes : deckB.nodes;
-    nodes.loopActive = false;
-    nodes.activeLoopBars = null;
-    nodes.loopStart = 0;
-    nodes.loopEnd = 0;
-    if (nodes.source) {
-      nodes.source.loop = false;
-    }
-
-    const deckInst = deckId === 'A' ? deckA : deckB;
-    deckInst.setState(prev => ({
-      ...prev,
-      isPlaying: false,
-      currentTime: 0,
-      activeLoopBars: null,
-      loopStart: 0,
-      loopEnd: 0,
-      isUserSelected: false,
-      lastPlayedTrackId: prev.track ? prev.track.id : prev.lastPlayedTrackId
-    }));
-    nodes.pausedAt = 0;
-  };
 
   const loadTrackIntoDeck = useCallback((track, deckId, startAutoTransition = false, isAutoload = false) => {
     initAudio();
@@ -324,7 +333,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     addLog(`Sincronización: Deck ${slaveId} sincronizado con Deck ${masterId} (Tiempo: ${t_slave.toFixed(2)}s ➔ ${targetTime.toFixed(2)}s).`);
   };
 
-  const updateFx = (active, type, x, y, isInitialTouch = false, isQuickClick = false) => {
+  const updateFx = (active, type, x, y, isInitialTouch = false) => {
     setFxState({ active, type, x, y });
     
     initAudio();
@@ -347,7 +356,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
           currentDeck.updateScratch(x, width, () => transitionState.active);
         }
       } else {
-        currentDeck.stopScratch(isQuickClick, x, () => transitionState.active);
+        currentDeck.stopScratch(() => transitionState.active);
       }
     }
   };
@@ -396,7 +405,7 @@ export function useAudioEngine({ library, addLog, onUpdateTrackCuePoints }) {
     toggleVinylMode: (deckId) => (deckId === 'A' ? deckA.toggleVinylMode() : deckB.toggleVinylMode()),
     startScratch: (deckId, isUpperHalf, clientX, clientY) => (deckId === 'A' ? deckA.startScratch(isUpperHalf, clientX, clientY, () => transitionState.active) : deckB.startScratch(isUpperHalf, clientX, clientY, () => transitionState.active)),
     updateScratch: (deckId, clientX, width) => (deckId === 'A' ? deckA.updateScratch(clientX, width, () => transitionState.active) : deckB.updateScratch(clientX, width, () => transitionState.active)),
-    stopScratch: (deckId, isQuickClick, clickPercent) => (deckId === 'A' ? deckA.stopScratch(isQuickClick, clickPercent, () => transitionState.active) : deckB.stopScratch(isQuickClick, clickPercent, () => transitionState.active)),
+    stopScratch: (deckId) => (deckId === 'A' ? deckA.stopScratch(() => transitionState.active) : deckB.stopScratch(() => transitionState.active)),
     toggleDeckLoop: (deckId, bars) => (deckId === 'A' ? deckA.toggleDeckLoop(bars) : deckB.toggleDeckLoop(bars)),
     updateDeckCuePoints: (deckId, markerType, newTime) => (deckId === 'A' ? deckA.updateDeckCuePoints(markerType, newTime) : deckB.updateDeckCuePoints(markerType, newTime))
   };

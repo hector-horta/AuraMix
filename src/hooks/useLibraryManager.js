@@ -130,7 +130,7 @@ export function useLibraryManager({ initAudio, addLog }) {
         ...demoTrack,
         bpm: demoTrack.bpm !== undefined ? demoTrack.bpm : bpm,
         key: demoTrack.key !== undefined ? demoTrack.key : keyData.camelot,
-        keyName: demoTrack.keyName !== undefined ? keyData.keyName : keyData.keyName,
+        keyName: demoTrack.keyName !== undefined ? demoTrack.keyName : keyData.keyName,
         outro: demoTrack.outro !== undefined ? demoTrack.outro : outroTime,
         intro: demoTrack.intro !== undefined ? demoTrack.intro : introTime,
         cue: demoTrack.cue !== undefined ? demoTrack.cue : 0,
